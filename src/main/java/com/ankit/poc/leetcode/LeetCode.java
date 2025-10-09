@@ -411,4 +411,26 @@ public class LeetCode {
     }
     return dp[s.length()];
   }
+
+  public List<List<Integer>> combinationSum(int[] candidates, int target) {
+    List<List<Integer>> result = new ArrayList<>();
+    List<Integer> combination = new ArrayList<>();
+    findCombinationSum(target, result, combination, 0, candidates);
+    return result;
+  }
+
+
+  private void findCombinationSum(int target, List<List<Integer>> result, List<Integer> combination,
+      int start, int[] candidates) {
+    if (target == 0) {
+      result.add(new ArrayList<>(combination));
+    } else if (target < 0) {
+      return;
+    }
+    for (int i = start; i < candidates.length; i++) {
+      combination.add(candidates[i]);
+      findCombinationSum(target - candidates[i], result, combination, i, candidates);
+      combination.remove(combination.size() - 1);
+    }
+  }
 }
