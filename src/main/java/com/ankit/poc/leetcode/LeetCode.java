@@ -703,4 +703,47 @@ public class LeetCode {
       dfsNumsIslands(row + dir[0], col + dir[1], grid);
     }
   }
+
+  public int longestConsecutive(int[] nums) {
+    if (nums.length == 0) {
+
+      return 0;
+    }
+    Set<Integer> numSet = new HashSet<>();
+    for (int num : nums) {
+      numSet.add(num);
+    }
+    int longestSub = 1;
+    for (int num : numSet) {
+      if (numSet.contains(num - 1)) {
+        continue;
+      } else {
+        int currentNum = num, currentSub = 1;
+
+        while (numSet.contains(currentNum + 1)) {
+          currentNum++;
+          currentSub++;
+        }
+
+        longestSub = Math.max(currentSub, longestSub);
+      }
+    }
+    return longestSub;
+  }
+
+  public int longestConsecutive2(int[] nums) {
+    if (nums.length == 0) {
+      return 0;
+    }
+    Arrays.sort(nums);
+    int longestSub = 1;
+    for (int i = 0; i < nums.length - 1; i++) {
+      // int currentSub = 1;
+      if (nums[i] + 1 == nums[i + 1]) {
+        longestSub++;
+      }
+      // longestSub = Math.max(currentSub, longestSub);
+    }
+    return longestSub;
+  }
 }
