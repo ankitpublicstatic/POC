@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -552,5 +553,49 @@ public class LeetCode {
       cloneNode.neighbors.add(cloneGraph(neighbor));
     }
     return cloneNode;
+  }
+
+  public boolean canFinish(int numCourses, int[][] prerequisites) {
+    Map<Integer, List<Integer>> courseGraph = new HashMap<>();
+    for (int[] pre : prerequisites) {
+      if (courseGraph.containsKey(pre[1])) {
+        courseGraph.get(pre[1]).add(pre[0]);
+      } else {
+        List<Integer> nextCourse = new LinkedList<>();
+        nextCourse.add(pre[0]);
+        courseGraph.put(pre[1], nextCourse);
+      }
+    }
+
+    Set<Integer> visited = new HashSet<>();
+    for (int currentCourse = 0; currentCourse < numCourses; currentCourse++) {
+      if (courseSchedule(currentCourse, visited, courseGraph) == false) {
+        return false;
+      }
+    }
+
+    return true;
+
+  }
+
+
+  private boolean courseSchedule(int currentCourse, Set<Integer> visited,
+      Map<Integer, List<Integer>> courseGraph) {
+    if (visited.contains(currentCourse)) {
+      return false;
+    }
+    if (courseGraph.get(currentCourse) == null) {
+      return true;
+    }
+
+    visited.add(currentCourse);
+    for (int pre : courseGraph.get(currentCourse)) {
+      if (courseSchedule(pre, visited, courseGraph) == false) {
+        return false;
+      }
+    }
+    visited.remove(currentCourse);
+    courseGraph.put(currentCourse, null);
+    return true;
   }
 }
