@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class LeetCode {
@@ -509,5 +510,47 @@ public class LeetCode {
       return true;
     }
     return false;
+  }
+
+
+  // Definition for a Node.
+  class Node {
+    public int val;
+    public List<Node> neighbors;
+
+    public Node() {
+      val = 0;
+      neighbors = new ArrayList<>();
+    }
+
+    public Node(int _val) {
+      val = _val;
+      neighbors = new ArrayList<>();
+    }
+
+    public Node(int _val, ArrayList<Node> _neighbors) {
+      val = _val;
+      neighbors = _neighbors;
+    }
+  }
+
+
+  Map<Node, Node> visitedNodeMap = new HashMap<>();
+
+  public Node cloneGraph(Node node) {
+    if (node == null) {
+      return node;
+    }
+    if (visitedNodeMap.containsKey(node)) {
+      return visitedNodeMap.get(node);
+    }
+
+    Node cloneNode = new Node(node.val, new ArrayList<>());
+    visitedNodeMap.put(node, cloneNode);
+
+    for (Node neighbor : node.neighbors) {
+      cloneNode.neighbors.add(cloneGraph(neighbor));
+    }
+    return cloneNode;
   }
 }
