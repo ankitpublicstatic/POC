@@ -674,4 +674,33 @@ public class LeetCode {
       }
     }
   }
+
+  public int numIslands(char[][] grid) {
+    int island = 0, row = grid.length, col = grid[0].length;
+    for (int i = 0; i < row; i++) {
+      for (int j = 0; j < col; j++) {
+        if (grid[i][j] == '1') {
+          island++;
+          dfsNumsIslands(i, j, grid);
+        }
+      }
+    }
+    return island;
+  }
+
+
+  private void dfsNumsIslands(int row, int col, char[][] grid) {
+    int newRow = grid.length, newCol = grid[0].length;
+    int[][] directions = new int[][] {{1, 0}, {0, 1}, {0, -1}, {-1, 0}};
+
+    if (row < 0 || col < 0 || row >= newRow || col >= newCol || grid[row][col] == '0') {
+      return;
+    }
+
+    grid[row][col] = '0';
+
+    for (int[] dir : directions) {
+      dfsNumsIslands(row + dir[0], col + dir[1], grid);
+    }
+  }
 }
