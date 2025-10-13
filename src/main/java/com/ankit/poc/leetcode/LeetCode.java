@@ -738,12 +738,76 @@ public class LeetCode {
     Arrays.sort(nums);
     int longestSub = 1;
     for (int i = 0; i < nums.length - 1; i++) {
-      // int currentSub = 1;
       if (nums[i] + 1 == nums[i + 1]) {
         longestSub++;
       }
-      // longestSub = Math.max(currentSub, longestSub);
     }
     return longestSub;
   }
+
+  // alien-dictionary
+
+  public Map<Character, List<Character>> reversedList = new HashMap<>();
+  public Map<Character, Boolean> seen = new HashMap<>();
+  public StringBuilder result = new StringBuilder();
+
+  public String alienOrder(String[] words) {
+    for (String word : words) {
+      for (char c : word.toCharArray()) {
+        reversedList.putIfAbsent(c, new ArrayList<>());
+      }
+    }
+
+    for (int i = 0; i < words.length - 1; i++) {
+      String word1 = words[i];
+      String word2 = words[i + 1];
+
+      if (word1.length() > word2.length() && word1.startsWith(word2)) {
+        return "";
+      }
+
+      for (int j = 0; j < Math.min(word1.length(), word2.length()); j++) {
+        if (word1.charAt(j) != word2.charAt(j)) {
+          reversedList.get(word2.charAt(j)).add(word1.charAt(j));
+          break;
+        }
+      }
+    }
+
+    for (Character c : reversedList.keySet()) {
+      boolean res = dfsAlienOrder(c);
+      if (!res) {
+        return "";
+      }
+    }
+
+    if (result.length() < reversedList.size()) {
+      return "";
+    }
+    return result.toString();
+  }
+
+
+  private boolean dfsAlienOrder(Character c) {
+    if (seen.containsKey(c)) {
+      return seen.get(c);
+    }
+    seen.put(c, false);
+
+    for (Character next : reversedList.get(c)) {
+      boolean res = dfsAlienOrder(next);
+      if (!res) {
+        return false;
+      }
+    }
+    seen.put(c, true);
+    result.append(c);
+    return true;
+  }
+
+  /*
+   * Graph VS Tree Tree: All nodes are need to connected, and No loops should need to present
+   * between nodes. Graph: No such restrictions present to all nodes to be connected in Graph, and
+   * There can be present loops in Graph nodes.
+   */
 }
