@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 
 public class LeetCode {
   public static void main(String[] args) {
@@ -745,7 +746,7 @@ public class LeetCode {
     return longestSub;
   }
 
-  // alien-dictionary
+  // alien-dictionary Premium
 
   public Map<Character, List<Character>> reversedList = new HashMap<>();
   public Map<Character, Boolean> seen = new HashMap<>();
@@ -810,4 +811,42 @@ public class LeetCode {
    * between nodes. Graph: No such restrictions present to all nodes to be connected in Graph, and
    * There can be present loops in Graph nodes.
    */
+
+  // graph-valid-tree Premium
+
+  public boolean validTree(int n, int[][] edges) {
+    if (edges.length != n - 1) {
+      return false;
+    }
+    List<List<Integer>> adjancencyList = new ArrayList<>();
+    for (int i = 0; i < n; i++) {
+      adjancencyList.add(new ArrayList<>());
+    }
+
+    for (int[] edge : edges) {
+      adjancencyList.get(edge[0]).add(edge[1]);
+      adjancencyList.get(edge[1]).add(edge[0]);
+    }
+
+    Stack<Integer> stack = new Stack<>();
+    Set<Integer> visited = new HashSet<>();
+
+    stack.push(0);
+    visited.add(0);
+
+    while (!stack.isEmpty()) {
+      int node = stack.pop();
+      for (int neighbour : adjancencyList.get(node)) {
+        if (visited.contains(neighbour)) {
+          continue;
+        }
+        visited.add(neighbour);
+        stack.push(neighbour);
+      }
+    }
+    if (visited.size() == n) {
+      return true;
+    }
+    return false;
+  }
 }
