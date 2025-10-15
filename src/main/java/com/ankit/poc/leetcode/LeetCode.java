@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
@@ -1035,6 +1036,7 @@ public class LeetCode {
 
   }
 
+  // 141
   public boolean hasCycle(ListNode head) {
     if (head == null) {
       return false;
@@ -1055,4 +1057,39 @@ public class LeetCode {
     return false;
   }
 
+  public ListNode mergeTwoLists(ListNode list1, ListNode list2) {
+    ListNode dummy = new ListNode(1), merge = dummy;
+    while (list1 != null && list2 != null) {
+      if (list1.val <= list2.val) {
+        merge.next = list1;
+        list1 = list1.next;
+      } else {
+        merge.next = list2;
+        list2 = list2.next;
+      }
+      merge = merge.next;
+    }
+    if (merge.next == list1 && list1 == null) {
+      merge.next = list2;
+    } else {
+      merge.next = list1;
+    }
+    return dummy.next;
+  }
+
+  public ListNode mergeKLists(ListNode[] lists) {
+    ListNode dummy = new ListNode(1), merge = dummy;
+    PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+    for (ListNode list : lists) {
+      while (list != null) {
+        minHeap.add(list.val);
+        list = list.next;
+      }
+    }
+    while (!minHeap.isEmpty()) {
+      merge.next = new ListNode(minHeap.remove());
+      merge = merge.next;
+    }
+    return dummy.next;
+  }
 }
