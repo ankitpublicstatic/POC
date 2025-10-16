@@ -1258,13 +1258,14 @@ public class LeetCode {
 
   private boolean backtrackExist(int row, int col, String word, int index) {
     if (index >= word.length()) {
-      return false;
+      return true;
     }
 
     if (row < 0 || row >= rows || col < 0 || col >= cols
         || this.board[row][col] != word.charAt(index)) {
       return false;
     }
+
     int[] rowdir = {0, 1, 0, -1}, coldir = {1, 0, -1, 0};
     this.board[row][col] = '#';
 
@@ -1277,5 +1278,34 @@ public class LeetCode {
     }
     board[row][col] = word.charAt(index);
     return isSuccess;
+  }
+
+  // 3 longest-substring-without-repeating-characters
+
+  public int lengthOfLongestSubstring(String s) {
+    if (s == null || s.length() == 0) {
+      return 0;
+    }
+    if (s.length() == 1) {
+      return 1;
+    }
+
+    int left = 0, right = 0, ans = 0;
+
+    HashSet<Character> set = new HashSet<>();
+
+    while (right < s.length()) {
+      char c = s.charAt(right);
+      while (set.contains(c)) {
+        set.remove(s.charAt(left));
+        left++;
+      }
+      set.add(c);
+      ans = Math.max(ans, right - left + 1);
+      right++;
+    }
+
+    return ans;
+
   }
 }
