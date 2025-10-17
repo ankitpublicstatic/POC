@@ -13,15 +13,15 @@ import java.util.Set;
 import java.util.Stack;
 
 public class LeetCode {
-  public static void main(String[] args) {
-    // int[] nums = new int[] {1, 2, 8, 5, 9, 4};
-
-    int[] nums = new int[] {0, 1, 0, 3, 12};
-    // LeetCode.targetOfSum(nums, 13);
-    // System.out.println(Arrays.toString(LeetCode.productExceptSelfOneForLoop(nums)));
-    System.out.println(Arrays.toString(nums));
-    LeetCode.moveZeroes4(nums);
-  }
+  // public static void main(String[] args) {
+  // // int[] nums = new int[] {1, 2, 8, 5, 9, 4};
+  //
+  // int[] nums = new int[] {0, 1, 0, 3, 12};
+  // // LeetCode.targetOfSum(nums, 13);
+  // // System.out.println(Arrays.toString(LeetCode.productExceptSelfOneForLoop(nums)));
+  // System.out.println(Arrays.toString(nums));
+  // LeetCode.moveZeroes4(nums);
+  // }
 
 
   public int[] twosum(int[] nums, int target) {
@@ -1328,6 +1328,10 @@ public class LeetCode {
   }
 
   // 76 minimum-window-substring
+  public static void main(String[] args) {
+    LeetCode leetCode = new LeetCode();
+    System.out.println(leetCode.minWindow("ADOBECODEBANC", "ABC"));
+  }
 
   public String minWindow(String s, String t) {
     if (s.length() == 0 || t.length() == 0 || s.length() < t.length()) {
@@ -1374,6 +1378,61 @@ public class LeetCode {
     } else {
       return s.substring(ans[1], ans[2] + 1);
     }
+  }
+
+  // 242 valid-anagram
+  public boolean isAnagram(String s, String t) {
+    if (s.length() != t.length()) {
+      return false;
+    }
+    int[] count = new int[26];
+
+    for (int i = 0; i < s.length(); i++) {
+      count[s.charAt(i) - 'a']++;
+      count[t.charAt(i) - 'a']--;
+    }
+
+    for (int i = 0; i < 26; i++) {
+      if (count[i] != 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public boolean isAnagram2(String s, String t) {
+    if (s.length() != t.length()) {
+      return false;
+    }
+    char[] sArray = s.toCharArray();
+    char[] tArray = t.toCharArray();
+    Arrays.parallelSort(sArray);
+    Arrays.parallelSort(tArray);
+    for (int i = 0; i < sArray.length; i++) {
+      if (sArray[i] != tArray[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public boolean isAnagram3(String s, String t) {
+    if (s.length() != t.length()) {
+      return false;
+    }
+    char[] sArray = s.toCharArray();
+    char[] tArray = t.toCharArray();
+    int[] count = new int[26];
+    for (int i = 0; i < sArray.length; i++) {
+      count[sArray[i] - 'a']++;
+      count[tArray[i] - 'a']--;
+    }
+    for (int i = 0; i < 26; i++) {
+      if (count[i] != 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
 
