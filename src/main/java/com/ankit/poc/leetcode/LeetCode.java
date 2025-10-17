@@ -1470,4 +1470,31 @@ public class LeetCode {
     return new ArrayList(ansMap.values());
   }
 
+  // 20 valid-parentheses
+
+  public boolean isValid(String s) {
+    Map<Character, Character> mappedCharacters = new HashMap<>();
+    mappedCharacters.put(')', '(');
+    mappedCharacters.put(']', '[');
+    mappedCharacters.put('}', '{');
+
+    Stack<Character> stack = new Stack<>();
+
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+
+      if (!mappedCharacters.containsKey(c)) {
+        stack.push(c);
+      } else {
+        if (stack.isEmpty()) {
+          return false;
+        }
+        char topElement = stack.pop();
+        if (topElement != mappedCharacters.get(c)) {
+          return false;
+        }
+      }
+    }
+    return stack.isEmpty();
+  }
 }
