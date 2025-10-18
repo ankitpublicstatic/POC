@@ -1570,4 +1570,37 @@ public class LeetCode {
     }
     return count;
   }
+
+
+  // 271 encode-and-decode-strings Premium
+
+  public String encode(List<String> str) {
+    if (str.size() == 0) {
+      return Character.toString(258);
+    }
+
+    String seprate = Character.toString(257);
+    StringBuilder encodeString = new StringBuilder();
+    for (String s : str) {
+      encodeString.append(s);
+      encodeString.append(seprate);
+    }
+    encodeString.deleteCharAt(encodeString.length() - 1);
+    return encodeString.toString();
+  }
+
+  public List<String> decode(String s) {
+    if (s.length() == 0) {
+      return new ArrayList<>();
+    }
+    if (s.equals(Character.toString(258))) {
+      return new ArrayList<>();
+    }
+
+    String seprate = Character.toString(257);
+    String[] split = s.split(seprate, -1);
+    return Arrays.asList(split);
+  }
+
+
 }
