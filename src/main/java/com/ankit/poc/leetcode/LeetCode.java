@@ -1747,5 +1747,29 @@ public class LeetCode {
     return reDeserialize(strList);
   }
 
+  // 572 subtree-of-another-tree
+  public boolean isSame(TreeNode s, TreeNode t) {
+    if (s == null && t == null) {
+      return true;
+    }
+    if (s == null || t == null) {
+      return false;
+    }
 
+    if (s.val != t.val) {
+      return false;
+    }
+    return isSame(s.left, t.left) && isSame(s.right, t.right);
+  }
+
+  public boolean isSubtree(TreeNode root, TreeNode subRoot) {
+    if (root == null) {
+      return false;
+    }
+    if (isSame(root, subRoot)) {
+      return true;
+    }
+    return isSubtree(root.left, subRoot) || isSubtree(root.right, subRoot);
+
+  }
 }
