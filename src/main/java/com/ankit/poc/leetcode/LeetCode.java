@@ -1707,4 +1707,45 @@ public class LeetCode {
     order(root, 0);
     return ans;
   }
+
+  // 297 serialize-and-deserialize-binary-tree
+  public String reSerialize(TreeNode root, String str) {
+    if (root == null) {
+      str += "null";
+    } else {
+      str += str.valueOf(root.val) + ",";
+      str = reSerialize(root.left, str);
+      str = reSerialize(root.right, str);
+    }
+    return str;
+  }
+
+  // Encodes a tree to a single string.
+  public String serialize(TreeNode root) {
+
+    return reSerialize(root, "");
+  }
+
+  public TreeNode reDeserialize(List<String> str) {
+    if ("null".equals(str.get(0))) {
+      str.remove(0);
+      return null;
+    }
+    TreeNode root = new TreeNode(Integer.parseInt(str.get(0)));
+    str.remove(0);
+    root.left = reDeserialize(str);
+    root.right = reDeserialize(str);
+    return root;
+
+  }
+
+  // Decodes your encoded data to tree.
+  public TreeNode deserialize(String data) {
+
+    String[] strArray = data.split(",");
+    List<String> strList = new LinkedList<>(Arrays.asList(strArray));
+    return reDeserialize(strList);
+  }
+
+
 }
