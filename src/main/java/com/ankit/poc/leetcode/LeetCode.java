@@ -1853,4 +1853,20 @@ public class LeetCode {
     return nums.get(k - 1);
   }
 
+  // 235 lowest-common-ancestor-of-a-binary-search-tree
+
+  public TreeNode lowestCommonAncestor(TreeNode root, TreeNode p, TreeNode q) {
+    int parentalVal = root.val;
+    int pVal = p.val;
+    int qVal = q.val;
+
+    if (pVal > parentalVal && qVal > parentalVal) {
+      return lowestCommonAncestor(root.right, p, q);
+    }
+    if (pVal < parentalVal && qVal < parentalVal) {
+      return lowestCommonAncestor(root.left, p, q);
+    }
+    return root;
+  }
+
 }
