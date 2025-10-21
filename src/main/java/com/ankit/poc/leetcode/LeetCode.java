@@ -2003,4 +2003,17 @@ public class LeetCode {
     }
   }
 
+  // 371 sum-of-two-integers
+  public int getSum(int a, int b) {
+    while (b != 0) {
+      int temp = a ^ b; // a XOR b
+      int carry = (a & b) << 1; // a & b, shift one step left
+      a = temp;
+      b = carry;
+
+    }
+    return a;
+
+  }
+
 }
