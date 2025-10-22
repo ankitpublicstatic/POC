@@ -2033,10 +2033,24 @@ public class LeetCode {
 
     ans[0] = 0;
 
-    for (int i = 1; i < n; i++) {
+    for (int i = 1; i <= n; i++) {
       ans[i] = ans[i & i - 1] + 1;
     }
     return ans;
+
+  }
+
+  // 268 missing-number
+  public int missingNumber(int[] nums) {
+    int xOr = 0;
+
+    for (int i = 0; i <= nums.length; i++) {
+      xOr = xOr ^ i;
+    }
+    for (int num : nums) {
+      xOr = xOr ^ num;
+    }
+    return xOr;
 
   }
 }
