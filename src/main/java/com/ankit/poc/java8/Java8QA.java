@@ -91,6 +91,9 @@ public class Java8QA {
     Student student = studentList.stream()
         .sorted(Collections.reverseOrder(Comparator.comparing(Student::getRank)))
         .collect(Collectors.toList()).get(1);
+    studentList.stream().sorted(Collections.reverseOrder(Comparator.comparing(Student::getAge)))
+        .collect(Collectors.toList()).get(1);
+
 
     // System.out.println(student);
     Student student2 = studentList.stream()

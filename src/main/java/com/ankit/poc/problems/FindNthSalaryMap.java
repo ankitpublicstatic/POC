@@ -28,11 +28,11 @@ public class FindNthSalaryMap {
     map2.put("dev", 1600);
     map2.put("danav", 1800);
 
-    Entry<Integer, List<String>> entry = findDynamciNthHighestSalary(2, map);
+    Entry<Integer, List<String>> entry = findDynamciNthHighestSalary(1, map);
 
     System.out.println(entry);
 
-    Entry<Integer, List<String>> entry2 = findDynamciNthHighestSalary(2, map2);
+    Entry<Integer, List<String>> entry2 = findDynamciNthHighestSalary(1, map2);
     System.out.println(entry2);
   }
 
