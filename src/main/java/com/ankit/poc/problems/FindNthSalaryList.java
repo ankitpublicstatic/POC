@@ -2,23 +2,17 @@ package com.ankit.poc.problems;
 
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-import com.ankit.poc.Test;
-import com.ankit.poc.java8.Java8QA;
+import com.ankit.poc.StaticData;
 import com.ankit.poc.java8.Student;
 
 public class FindNthSalaryList {
   public static void main(String[] args) {
-
-    List<Student> studentList = Java8QA.studentList;
-
+    List<Student> studentList = StaticData.studentList;
     System.out.println(FindNthSalaryList.findNthByIndex(studentList, 2));
-
-
   }
 
   public static Entry<Integer, List<String>> findDynamciNthHighestSalary(int index,

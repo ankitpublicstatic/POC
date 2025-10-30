@@ -9,10 +9,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import com.ankit.poc.StaticData;
 
 public class StreamFeature {
   public static void main(String[] args) {
-    List<Student> studentList = Java8QA.studentList;
+    List<Student> studentList = StaticData.studentList;
 
     List<String> names = Arrays.asList("ankit", null, "ram", "sita", "geeta");
     List<Integer> numbers = List.of(3, 2, 35, 54, 65, 2);

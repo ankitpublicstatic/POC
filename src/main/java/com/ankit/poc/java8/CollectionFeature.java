@@ -57,7 +57,6 @@ public class CollectionFeature {
       // System.out.println("Set is immutable, it can't be modify.");
     }
     // Collections.rotate(list2, frequency);
-
     List<Integer> listRotate = IntStream.rangeClosed(1, 10).boxed().collect(Collectors.toList());
 
     System.out.println("original " + listRotate);
