@@ -57,15 +57,15 @@ public class CollectionFeature {
       // System.out.println("Set is immutable, it can't be modify.");
     }
     // Collections.rotate(list2, frequency);
-    List<Integer> listRotate = IntStream.rangeClosed(1, 10).boxed().collect(Collectors.toList());
+    List<Integer> listNumbers = IntStream.rangeClosed(1, 10).boxed().collect(Collectors.toList());
 
-    System.out.println("original " + listRotate);
-    Collections.rotate(listRotate, -5);
-    System.out.println("-5 " + listRotate);
-    Collections.rotate(listRotate, listRotate.size());
-    System.out.println("listRotate.size( )" + listRotate);
-    Collections.rotate(listRotate, -15);
-    System.out.println("-15 " + listRotate);
+    System.out.println("original " + listNumbers);
+    Collections.rotate(listNumbers, -5);
+    System.out.println("-5 " + listNumbers);
+    Collections.rotate(listNumbers, listNumbers.size());
+    System.out.println("listRotate.size( )" + listNumbers);
+    Collections.rotate(listNumbers, -15);
+    System.out.println("-15 " + listNumbers);
 
 
   }
