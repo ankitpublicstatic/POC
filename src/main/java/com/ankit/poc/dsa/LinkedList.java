@@ -1,5 +1,11 @@
 package com.ankit.poc.dsa;
 
+class Node {
+  int data;
+  Node next;
+}
+
+
 public class LinkedList {
   Node head;
 
