@@ -13,16 +13,6 @@ import java.util.Set;
 import java.util.Stack;
 
 public class LeetCode {
-  // public static void main(String[] args) {
-  // // int[] nums = new int[] {1, 2, 8, 5, 9, 4};
-  //
-  // int[] nums = new int[] {0, 1, 0, 3, 12};
-  // // LeetCode.targetOfSum(nums, 13);
-  // // System.out.println(Arrays.toString(LeetCode.productExceptSelfOneForLoop(nums)));
-  // System.out.println(Arrays.toString(nums));
-  // LeetCode.moveZeroes4(nums);
-  // }
-
 
   public int[] twosum(int[] nums, int target) {
     HashMap<Integer, Integer> indexVauleMap = new HashMap<>();
@@ -119,8 +109,6 @@ public class LeetCode {
     }
   }
 
-
-
   public static void moveZeroes2(int[] nums) {
     int lastNonZero = 0;
     for (int i = 0; i < nums.length; i++) {
@@ -134,6 +122,44 @@ public class LeetCode {
         lastNonZero++;
       }
     }
+  }
+
+  public static void main(String[] args) {
+    // // int[] nums = new int[] {1, 2, 8, 5, 9, 4};
+    //
+    int[] nums = new int[] {0, 1, 0, 3, 12};
+    // LeetCode.targetOfSum(nums, 13);
+    // System.out.println(Arrays.toString(LeetCode.(nums)));
+    LeetCode.moveZeroes2(nums);
+    System.out.println(Arrays.toString(nums));
+
+  }
+
+  public static void moveZeroes3(int[] nums) {
+    for (int i = 0; i < nums.length; i++) {
+      for (int j = 0; j < nums.length - 1; j++) {
+        if (nums[j] == 0 && nums[j + 1] != 0) {
+          int temp = nums[j];
+          nums[j] = nums[j + 1];
+          nums[j + 1] = temp;
+        }
+      }
+    }
+  }
+
+  public void moveZeroes41(int[] nums) {
+    int lastNonZero = 0;
+    for (int i = 0; i < nums.length; i++) {
+      if (nums[i] != 0) {
+        if (i != lastNonZero) {
+          int temp = nums[i];
+          nums[i] = nums[lastNonZero];
+          nums[lastNonZero] = temp;
+        }
+        lastNonZero++;
+      }
+    }
+    System.out.println(Arrays.toString(nums));
   }
 
   public static void moveZeroes(int[] nums) {
@@ -163,32 +189,6 @@ public class LeetCode {
     System.out.println("Final result: " + Arrays.toString(nums));
   }
 
-  public static void moveZeroes3(int[] nums) {
-    for (int i = 0; i < nums.length; i++) {
-      for (int j = 0; j < nums.length - 1; j++) {
-        if (nums[j] == 0 && nums[j + 1] != 0) {
-          int temp = nums[j];
-          nums[j] = nums[j + 1];
-          nums[j + 1] = temp;
-        }
-      }
-    }
-  }
-
-  public void moveZeroes41(int[] nums) {
-    int lastNonZero = 0;
-    for (int i = 0; i < nums.length; i++) {
-      if (nums[i] != 0) {
-        if (i != lastNonZero) {
-          int temp = nums[i];
-          nums[i] = nums[lastNonZero];
-          nums[lastNonZero] = temp;
-        }
-        lastNonZero++;
-      }
-    }
-    System.out.println(Arrays.toString(nums));
-  }
 
   public static void moveZeroes4(int[] nums) {
     int lastNonZero = 0;
@@ -1328,10 +1328,10 @@ public class LeetCode {
   }
 
   // 76 minimum-window-substring
-  public static void main(String[] args) {
-    LeetCode leetCode = new LeetCode();
-    System.out.println(leetCode.minWindow("ADOBECODEBANC", "ABC"));
-  }
+  // public static void main(String[] args) {
+  // LeetCode leetCode = new LeetCode();
+  // System.out.println(leetCode.minWindow("ADOBECODEBANC", "ABC"));
+  // }
 
   public String minWindow(String s, String t) {
     if (s.length() == 0 || t.length() == 0 || s.length() < t.length()) {

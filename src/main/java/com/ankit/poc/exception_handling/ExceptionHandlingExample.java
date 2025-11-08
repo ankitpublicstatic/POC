@@ -3,6 +3,7 @@ package com.ankit.poc.exception_handling;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class ExceptionHandlingExample {
 
@@ -10,14 +11,14 @@ public class ExceptionHandlingExample {
 
     List<String> list = Arrays.asList("44", "373", "xyz");
     List<Integer> list1 = Arrays.asList(1, 0);
-    // list1.forEach(handleGenericException(s->
-    // System.out.println(10/s),ArithmeticException.class));
+    list1.forEach(
+        handleGenericException(s -> System.out.println(10 / s), ArithmeticException.class));
 
-    // list.forEach(handleGenericException(s ->
-    // System.out.println(Integer.parseInt(s)),NumberFormatException.class));
+    list.forEach(handleGenericException(s -> System.out.println(Integer.parseInt(s)),
+        NumberFormatException.class));
 
-    // List<Integer> intList = list.stream().map(Integer::parseInt).collect(Collectors.toList());
-    // System.out.println(intList);
+    List<Integer> intList = list.stream().map(Integer::parseInt).collect(Collectors.toList());
+    System.out.println(intList);
 
     // handle exception for checkedException
     List<Integer> list2 = Arrays.asList(10, 20);
