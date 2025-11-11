@@ -1,0 +1,64 @@
+Fortify SCA (Static Code Analyzer) — Static Security Scanning
+💡 What It Is
+
+HP Fortify scans source code for security vulnerabilities (before compilation or deployment).
+It finds flaws like SQL injection, XSS, buffer overflows, insecure cryptography, etc.
+
+⚙️ How It Works
+
+Parses your Java/Python/JS code.
+
+Builds an abstract syntax tree (AST).
+
+Matches code patterns against a large rulepack (CWE/OWASP).
+
+Generates security reports with severity and remediation.
+
+💻 Example: Running Fortify on a Maven Project
+
+Step 1: Clean and Translate Code
+
+sourceanalyzer -b MyAppBuildID mvn clean compile
+
+
+This builds the Fortify translation unit of your source.
+
+Step 2: Scan for Vulnerabilities
+
+sourceanalyzer -b MyAppBuildID -scan -f fortify-report.fpr
+
+
+Generates an .fpr file (Fortify Project Report) containing vulnerabilities.
+
+Step 3: View in Fortify Audit Workbench
+
+Open fortify-report.fpr
+
+You’ll see findings like:
+
+Cross-site scripting in LoginController.java
+
+Hard-coded credentials in ConfigService.java
+
+⚙️ Example Vulnerable Java Code
+// ❌ Vulnerable code
+String query = "SELECT * FROM users WHERE username='" + request.getParameter("user") + "'";
+Statement stmt = connection.createStatement();
+ResultSet rs = stmt.executeQuery(query);
+
+
+Fortify will flag: SQL Injection (High Severity)
+
+✅ Fortify Maven Integration
+
+<plugin>
+  <groupId>com.fortify.plugin</groupId>
+  <artifactId>fortify-maven-plugin</artifactId>
+  <version>1.1.0</version>
+  <executions>
+    <execution>
+      <phase>verify</phase>
+      <goals><goal>translate</goal><goal>scan</goal></goals>
+    </execution>
+  </executions>
+</plugin>

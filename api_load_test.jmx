@@ -1,0 +1,30 @@
+<TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="API Load Test" enabled="true">
+  <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="API Users" enabled="true">
+    <stringProp name="ThreadGroup.num_threads">100</stringProp>
+    <stringProp name="ThreadGroup.ramp_time">30</stringProp>
+    <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+      <boolProp name="LoopController.continue_forever">false</boolProp>
+      <stringProp name="LoopController.loops">10</stringProp>
+    </elementProp>
+    <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="GET /api/orders" enabled="true">
+      <stringProp name="HTTPSampler.domain">localhost</stringProp>
+      <stringProp name="HTTPSampler.port">8080</stringProp>
+      <stringProp name="HTTPSampler.path">/api/orders</stringProp>
+      <stringProp name="HTTPSampler.method">GET</stringProp>
+    </HTTPSamplerProxy>
+  </ThreadGroup>
+</TestPlan>
+
+This simulates 100 users hitting /api/orders 10 times each with a 30-second ramp-up.
+
+⚙️ Run Headless via Command Line (for CI/CD)
+jmeter -n -t test-plan.jmx -l result.jtl -e -o report
+
+
+-n: non-GUI mode
+
+-t: test file
+
+-l: results log
+
+-o: HTML report output

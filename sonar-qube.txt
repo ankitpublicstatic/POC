@@ -1,0 +1,53 @@
+🧰 3️⃣ SonarQube — Code Quality, Maintainability & Security
+💡 What It Is
+
+SonarQube is a continuous inspection platform that checks code quality, technical debt, and coding standards using static analysis.
+
+It integrates into your CI/CD and enforces quality gates (minimum coverage, no critical issues).
+
+⚙️ How It Works
+
+Scans your source code and calculates metrics (complexity, duplication, coverage).
+
+Identifies bugs, vulnerabilities, code smells.
+
+Publishes reports in a central dashboard.
+
+Can block a Jenkins build if quality gate fails.
+
+💻 Example: Sonar Configuration in Maven (pom.xml)
+<plugin>
+  <groupId>org.sonarsource.scanner.maven</groupId>
+  <artifactId>sonar-maven-plugin</artifactId>
+  <version>3.9.1.2184</version>
+</plugin>
+
+
+Command:
+
+mvn clean verify sonar:sonar \
+  -Dsonar.projectKey=secure-api \
+  -Dsonar.host.url=http://sonar.company.com \
+  -Dsonar.login=your_sonar_token
+
+✅ Example Output
+
+Bugs: 2
+
+Vulnerabilities: 1
+
+Code Smells: 14
+
+Coverage: 82%
+
+Quality Gate: ✅ Passed
+
+⚙️ Jenkins Integration (CI/CD)
+stage('Code Quality') {
+  steps {
+    sh 'mvn sonar:sonar -Dsonar.projectKey=myApp -Dsonar.host.url=http://sonar.company.com -Dsonar.login=$SONAR_TOKEN'
+  }
+}
+
+
+✅ Outcome: Prevents merging code with bad quality metrics or vulnerabilities.

@@ -1,0 +1,314 @@
+pipeline {
+  agent any
+  stages {
+    stage('Checkout') {
+      steps { git 'https://github.com/org/project.git' }
+    }
+    stage('Build') {
+      steps { sh 'mvn clean package -DskipTests' }
+    }
+    stage('Static Code Quality') {
+      steps { sh 'mvn sonar:sonar -Dsonar.projectKey=myApp -Dsonar.login=$SONAR_TOKEN' }
+    }
+    stage('Security Scan') {
+      steps { sh 'sourceanalyzer -b myApp mvn compile && sourceanalyzer -b myApp -scan -f report.fpr' }
+    }
+    stage('Dependency Scan') {
+      steps { sh 'nexus-iq-cli -i myApp -s $NEXUS_URL -a $NEXUS_USER:$NEXUS_PASS -t build target/*.jar' }
+    }
+    stage('Performance Test') {
+      steps { sh 'jmeter -n -t tests/api_load_test.jmx -l results.jtl -e -o report/' }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'report/**, results.jtl, *.fpr', fingerprint: true
+    }
+  }
+}
+
+pipeline {
+  agent any
+  stages {
+    stage('Checkout') {
+      steps { git 'https://github.com/org/project.git' }
+    }
+    stage('Build') {
+      steps { sh './mvnw clean package -DskipTests' }
+    }
+    stage('Static Analysis') {
+      steps { sh 'mvn sonar:sonar -Dsonar.projectKey=myApp' }
+    }
+    stage('Performance Test') {
+	    steps {
+	        sh 'jmeter -n -t jmeter/api_load_test.jmx -l results.jtl -e -o reports/'
+	        archiveArtifacts artifacts: 'reports/**', fingerprint: true
+	    }
+	}
+	    
+    stage('Security Scan') {
+      steps { sh 'fortify-scan.sh target/myApp.jar' }
+    }
+    stage('Deploy to AWS') {
+      steps { sh './scripts/deploy-aws.sh' }
+    }
+  }
+}
+
+
+pipeline {
+    agent any
+    parameters {
+    string(name: 'BRANCH', defaultValue: 'main', description: 'Enter Branch Name')
+    //choice(name: 'BRANCH', choices: ['*/main', '*/java'], description: 'Select Branch')
+    }
+    stages {
+        stage('Build') {
+            steps {
+            //   bat 'net stop pipeline-pratyin-rms-fe'
+               checkout scmGit(branches: [[name: '*/$BRANCH']], extensions: [], userRemoteConfigs: [[credentialsId: 'GIT_CRED', url: 'https://github.com/PratyinInfotech/amir-website-admin-fe.git']])
+               bat "npm install --force"
+               echo "Successfully install."
+               
+                
+            }
+            post {  success {
+                     echo "Successfully build."
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                  echo "Starting deploying."
+                // sh 'sudo systemctl restart nginx.service'
+                // sh 'sudo fuser -k 3000/tcp'
+                // sh 'sudo npm install -g serve'
+                // sh 'sudo systemctl restart pipeline-pratyin-rms-fe.service'
+                // sh 'nohup serve -s build &'
+                  bat "npm run build"
+                  echo "Successfully deployed."
+                  
+                 bat 'net stop nginx'
+                 bat 'net start nginx'
+                 
+            }
+            post {
+                success {
+                    echo "Successfully deployed."
+                }
+            }
+        }
+    }
+}
+
+
+pipeline {
+    agent any
+    parameters {
+    string(name: 'BRANCH', defaultValue: 'prod_linux_features', description: 'Enter Branch Name')
+    //choice(name: 'BRANCH', choices: ['*/main', '*/java'], description: 'Select Branch')
+    }
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "3.6.3"
+    }
+    stages {
+        stage('Build') {
+            steps {
+                // Get some code from a GitHub repository
+                // git 'https://github.com/jglick/simple-maven-project-with-tests.git'
+               checkout scmGit(branches: [[name: '*/$BRANCH']], extensions: [], userRemoteConfigs: [[credentialsId: 'GIT_CRED', url: 'https://github.com/PratyinInfotech/pratyin-rms-be.git']])
+                // Run Maven on a Unix agent.
+                // sh "mvn -Dmaven.test.failure.ignore=true clean package"
+                sh "sudo mvn clean install"
+                // To run Maven on a Windows agent, use
+                // bat "mvn -Dmaven.test.failure.ignore=true clean package"
+            }
+            post {
+                // If Maven was able to run the tests, even if some of the test
+                // failed, record the test results and archive the jar file.
+                success {
+                     echo "Successfully build."
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                // Get some code from a GitHub repository
+                // echo "ankit" | sudo -S systemctl restart pipeline-e-commerce-admin-be.service
+                echo "Starting deploying."
+                sh 'sudo chmod -R 777 /var/lib/jenkins/workspace/'
+                sh 'sudo chmod -R  777 /opt/newrms'
+                sh 'sudo systemctl daemon-reload'
+                sh 'sudo systemctl restart pipeline-pratyin-rms-be.service'
+                
+             
+            }
+            post {
+                success {
+                    echo "Successfully deployed."
+                }
+            }
+        }
+    }
+}
+
+
+pipeline {
+    agent any
+    parameters {
+    string(name: 'BRANCH', defaultValue: 'prod_linux', description: 'Enter Branch Name')
+    //choice(name: 'BRANCH', choices: ['*/main', '*/java'], description: 'Select Branch')
+    }
+    // tools {
+    //     // Install the Maven version configured as "M3" and add it to the path.
+    //     maven "3.6.3"
+    // }
+    stages {
+        stage('Build') {
+            steps {
+                // Get some code from a GitHub repository
+                // git 'https://github.com/jglick/simple-maven-project-with-tests.git'
+               checkout scmGit(branches: [[name: '*/$BRANCH']], extensions: [], userRemoteConfigs: [[credentialsId: 'GIT_CRED', url: 'https://github.com/PratyinInfotech/pratyin-rms-fe.git']])
+                // Run Maven on a Unix agent.
+                // sh "mvn -Dmaven.test.failure.ignore=true clean package"
+                sh "npm install --force"
+                // sh "npm run build"
+                echo "Successfully install."
+                // sh "sudo npm run build"
+                // echo "Successfully build."
+                // To run Maven on a Windows agent, use
+                // bat "mvn -Dmaven.test.failure.ignore=true clean package"
+            }
+            post {
+                // If Maven was able to run the tests, even if some of the test
+                // failed, record the test results and archive the jar file.
+                success {
+                     echo "Successfully build."
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                // Get some code from a GitHub repository
+                // echo "ankit" | sudo -S systemctl restart pipeline-e-commerce-admin-be.service
+                echo "Starting deploying."
+                // sh 'sudo systemctl restart nginx.service'
+                // sh 'sudo fuser -k 3000/tcp'
+                // sh sudo npm install -g serve'
+                sh 'sudo chmod -R 777 /var/lib/jenkins/workspace/'
+                sh 'sudo systemctl daemon-reload'
+                sh 'sudo systemctl restart pipeline-pratyin-rms-fe.service'
+                sh 'sudo systemctl restart nginx.service'
+                // sh 'nohup serve -s build &'
+                
+             
+            }
+            post {
+                success {
+                    echo "Successfully deployed."
+                }
+            }
+        }
+    }
+}
+
+
+
+pipeline {
+    agent any
+    parameters {
+    string(name: 'BRANCH', defaultValue: 'main', description: 'Enter Branch Name')
+    //choice(name: 'BRANCH', choices: ['*/main', '*/java'], description: 'Select Branch')
+    }
+    stages {
+        stage('Build') {
+            steps {
+            //   bat 'net stop pipeline-pratyin-rms-fe'
+               checkout scmGit(branches: [[name: '*/$BRANCH']], extensions: [], userRemoteConfigs: [[credentialsId: 'GIT_CRED', url: 'https://github.com/PratyinInfotech/e-commerce-admin-be.git']])
+               sh "npm install --force"
+               echo "Successfully install."
+               
+                
+            }
+            post {  success {
+                     echo "Successfully build."
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                  echo "Starting deploying."
+                // sh 'sudo systemctl restart nginx.service'
+                // sh 'sudo fuser -k 3000/tcp'
+                // sh 'sudo npm install -g serve'
+                // sh 'sudo systemctl restart pipeline-pratyin-rms-fe.service'
+                // sh 'nohup serve -s build &'
+                sh 'sudo chmod -R 777 /var/lib/jenkins/workspace/'
+                // sh 'sudo systemctl daemon-reload'
+                // sh "npm run build"
+                // sh 'pm2 start index.js --name "new-folder"'
+                //  sh 'pm2 start index.js'
+                // bat 'net start  pipeline-pratyin-rms-fe'
+                 sh 'sudo systemctl daemon-reload'
+                sh 'sudo systemctl restart  pipeline-eportal-admin-be.service'
+            }
+            post {
+                success {
+                    echo "Successfully deployed."
+                }
+            }
+        }
+    }
+}
+
+pipeline {
+    agent any
+    parameters {
+    string(name: 'BRANCH', defaultValue: 'uat', description: 'Enter Branch Name')
+    //choice(name: 'BRANCH', choices: ['*/main', '*/java'], description: 'Select Branch')
+    }
+    tools {
+        // Install the Maven version configured as "M3" and add it to the path.
+        maven "3.6.3"
+    }
+    stages {
+        stage('Build') {
+            steps {
+                // Get some code from a GitHub repository
+                // git 'https://github.com/jglick/simple-maven-project-with-tests.git'
+               checkout scmGit(branches: [[name: '*/$BRANCH']], extensions: [], userRemoteConfigs: [[credentialsId: 'GIT_CRED', url: 'https://github.com/PratyinInfotech/pratyin-rms-be.git']])
+                // Run Maven on a Unix agent.
+                // sh "mvn -Dmaven.test.failure.ignore=true clean package"
+                sh "sudo mvn clean install"
+                // To run Maven on a Windows agent, use
+                // bat "mvn -Dmaven.test.failure.ignore=true clean package"
+            }
+            post {
+                // If Maven was able to run the tests, even if some of the test
+                // failed, record the test results and archive the jar file.
+                success {
+                     echo "Successfully build."
+                }
+            }
+        }
+        stage('Deploy') {
+            steps {
+                // Get some code from a GitHub repository
+                // echo "ankit" | sudo -S systemctl restart pipeline-e-commerce-admin-be.service
+                echo "Starting deploying."
+                sh 'sudo chmod -R 777 /var/lib/jenkins/workspace/'
+                sh 'sudo systemctl daemon-reload'
+                sh 'sudo systemctl restart pipeline-pratyin-rms-be-uat.service'
+                
+             
+            }
+            post {
+                success {
+                    echo "Successfully deployed."
+                }
+            }
+        }
+    }
+}
+
