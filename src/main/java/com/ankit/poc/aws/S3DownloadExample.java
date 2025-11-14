@@ -33,7 +33,7 @@ public class S3DownloadExample {
     s3.close();
   }
 
-  void getStream() {
+  public static void getStream() {
     S3Client s3 = S3Client.builder().region(Region.AP_SOUTHEAST_1) // choose appropriate
         .credentialsProvider(DefaultCredentialsProvider.create()).build();
 

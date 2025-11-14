@@ -14,7 +14,7 @@ import java.util.Stack;
 
 public class LeetCode {
 
-  public int[] twosum(int[] nums, int target) {
+  public static int[] twosum(int[] nums, int target) {
     HashMap<Integer, Integer> indexVauleMap = new HashMap<>();
     for (int i = 0; i < nums.length; i++) {
       int key = target - nums[i];

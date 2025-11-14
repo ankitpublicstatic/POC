@@ -15,6 +15,21 @@ public class FindNthSalaryList {
     System.out.println(FindNthSalaryList.findNthByIndex(studentList, 2));
   }
 
+  public static Object findNthBy(List<Student> studentList, Integer n) {
+    return studentList.stream().filter(emp -> emp.getRank() != null)
+        .sorted(Collections.reverseOrder(Comparator.comparing(Student::getRank)))
+        .collect(Collectors.toList()).get(n - 1);
+  }
+
+  public static Object findNthByIndex(List<Student> studentList, Integer n) {
+    Map<Integer, List<Student>> studentMap =
+        studentList.stream().filter(x -> x.getRank() != null).collect(Collectors
+            .groupingBy(Student::getRank, Collectors.mapping(x -> x, Collectors.toList())));
+    return studentMap.entrySet().stream()
+        .sorted(Collections.reverseOrder(Map.Entry.comparingByKey())).collect(Collectors.toList())
+        .get(n - 1);
+  }
+
   public static Entry<Integer, List<String>> findDynamciNthHighestSalary(int index,
       Map<String, Integer> map) {
     return map.entrySet().stream()
@@ -24,17 +39,4 @@ public class FindNthSalaryList {
         .collect(Collectors.toList()).get(index - 1);
   }
 
-  public static Object findNthBy(List<Student> studentList, Integer n) {
-    return studentList.stream().filter(emp -> emp.getRank() != null)
-        .sorted(Collections.reverseOrder(Comparator.comparing(Student::getRank)))
-        .collect(Collectors.toList()).get(n - 1);
-  }
-
-  public static Object findNthByIndex(List<Student> studentList, Integer n) {
-    return studentList.stream().filter(x -> x.getRank() != null)
-        .collect(Collectors.groupingBy(Student::getRank,
-            Collectors.mapping(x -> x, Collectors.toList())))
-        .entrySet().stream().sorted(Collections.reverseOrder(Map.Entry.comparingByKey()))
-        .collect(Collectors.toList()).get(n - 1);
-  }
 }
