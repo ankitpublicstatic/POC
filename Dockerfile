@@ -3,7 +3,8 @@ ARG JAR_FILE=target/demo-app.jar
 COPY ${JAR_FILE} app.jar
 ENTRYPOINT ["java", "-jar", "/app.jar"]
 
-
+FROM eclipse-temurin:17-jdk
+FROM eclipse-temurin:17-jre
 
 docker build -t myuser/demo-app:1.0 .
 docker run -p 8080:8080 myuser/demo-app:1.0
