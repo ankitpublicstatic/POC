@@ -1,0 +1,71 @@
+package com.ankit.poc.leetcode;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+
+public class Main {
+  public static void main(String[] args) {
+    System.out.println(hasPathagorenTriplets(new int[] {1, 2, 3, 4, 5}, 5));
+  }
+
+  public static boolean hasPathagorenTriplets(int[] arr, int n) {
+    for (int i = 0; i < n; i++) {
+      arr[i] = arr[i] * arr[i];
+    }
+    Arrays.sort(arr);
+    System.out.println(Arrays.toString(arr));
+    for (int i = n - 1; i >= 2; i--) {
+      int left = 0, right = i - 1;
+      while (left < right) {
+        if (arr[left] + arr[right] == arr[i]) {
+          return true;
+        }
+        if (arr[left] + arr[right] < arr[i]) {
+          left++;
+        } else {
+          right--;
+        }
+      }
+    }
+    return false;
+  }
+
+  public static void targetSum() {
+    int[] nums = {3, 4, 6, 7, 8, 2};
+    int target = 10;
+    Map<Integer, Integer> indexMap = new HashMap<>();
+    for (int i = 0; i < nums.length; i++) {
+      int number = target - nums[i];
+      if (indexMap.containsKey(number)) {
+        System.out.print("[" + i + ", " + indexMap.get(number) + "], ");
+        System.out.println("[" + nums[i] + ", " + number + "]");
+      }
+      indexMap.put(nums[i], i);
+    }
+  }
+
+  public static void printRepeatedPattern(int n) {
+    for (int i = n; i >= 1; i--) {
+      int repetedValue = n - i + 1;
+      for (int j = 0; j < repetedValue; j++) {
+        System.out.print(i);
+      }
+    }
+  }
+
+  public static void moveZero() {
+    int[] nums = {3, 0, 1, 0, 8, 0};
+    int insertPos = 0;
+
+    for (int i : nums) {
+      if (i != 0) {
+        nums[insertPos++] = i;
+      }
+    }
+    while (insertPos < nums.length) {
+      nums[insertPos++] = 0;
+    }
+    System.out.println(Arrays.toString(nums));
+  }
+}

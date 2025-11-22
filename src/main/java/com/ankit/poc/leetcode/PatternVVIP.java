@@ -5,10 +5,26 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PatternVVIP {
+  // public static void main(String[] args) {
+  // printRepeatCount(4);
+  // moveZero(new int[] {1, 0, 1, 0, 3, 12});
+  // targetOfSum(new int[] {4, 2, 6, 3, 7, 8}, 10);
+  // }
   public static void main(String[] args) {
-    printRepeatCount(4);
-    moveZero(new int[] {1, 0, 1, 0, 3, 12});
-    targetOfSum(new int[] {4, 2, 6, 3, 7, 8}, 10);
+    int[] nums = {3, 4, 6, 7, 8, 2};
+    int target = 10;
+    Map<Integer, Integer> indexMap = new HashMap<>();
+    System.out.println("Initial Array: " + Arrays.toString(nums));
+
+    for (int i = 0; i < nums.length; i++) {
+      int number = target - nums[i];
+      if (indexMap.containsKey(number)) {
+        System.out.print("[" + i + ", " + indexMap.get(number) + "], ");
+        System.out.println("[" + nums[i] + ", " + number + "]");
+      }
+      indexMap.put(nums[i], i);
+    }
+
   }
 
   public static void moveZero(int[] nums) {
