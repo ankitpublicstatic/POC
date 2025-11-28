@@ -9,12 +9,12 @@ public class Main {
     System.out.println(hasPathagorenTriplets(new int[] {1, 2, 3, 4, 5}, 5));
   }
 
-  public static boolean hasPathagorenTriplets(int[] arr, int n) {
+
+  private static boolean hasPathagorenTriplets(int[] arr, int n) {
     for (int i = 0; i < n; i++) {
       arr[i] = arr[i] * arr[i];
     }
     Arrays.sort(arr);
-    System.out.println(Arrays.toString(arr));
     for (int i = n - 1; i >= 2; i--) {
       int left = 0, right = i - 1;
       while (left < right) {
@@ -30,6 +30,7 @@ public class Main {
     }
     return false;
   }
+
 
   public static void targetSum() {
     int[] nums = {3, 4, 6, 7, 8, 2};
