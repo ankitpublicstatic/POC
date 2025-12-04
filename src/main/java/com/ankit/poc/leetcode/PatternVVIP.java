@@ -5,26 +5,36 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PatternVVIP {
-  // public static void main(String[] args) {
-  // printRepeatCount(4);
-  // moveZero(new int[] {1, 0, 1, 0, 3, 12});
-  // targetOfSum(new int[] {4, 2, 6, 3, 7, 8}, 10);
-  // }
   public static void main(String[] args) {
-    int[] nums = {3, 4, 6, 7, 8, 2};
-    int target = 10;
-    Map<Integer, Integer> indexMap = new HashMap<>();
-    System.out.println("Initial Array: " + Arrays.toString(nums));
+    printRepeatCount(4);
+    moveZero(new int[] {1, 0, 1, 0, 3, 12});
+    targetOfSum(new int[] {4, 2, 6, 3, 7, 8}, 10);
+  }
 
-    for (int i = 0; i < nums.length; i++) {
-      int number = target - nums[i];
-      if (indexMap.containsKey(number)) {
-        System.out.print("[" + i + ", " + indexMap.get(number) + "], ");
-        System.out.println("[" + nums[i] + ", " + number + "]");
+  // Input 1 : tesst > test
+  // output : tet
+  //
+  // Input 2 : tesset > teet > tt >
+  // output :
+  //
+  // Input 3 : test
+  // output : test
+
+
+  public static String removeRepetativeCharacter(String input) {
+    StringBuilder stack = new StringBuilder();
+
+    for (char c : input.toCharArray()) {
+      int len = stack.length();
+      if (len > 0 && stack.charAt(len - 1) == c) {
+        // Remove the adjacent duplicate
+        stack.deleteCharAt(len - 1);
+      } else {
+        stack.append(c);
       }
-      indexMap.put(nums[i], i);
     }
 
+    return stack.toString();
   }
 
   public static void moveZero(int[] nums) {

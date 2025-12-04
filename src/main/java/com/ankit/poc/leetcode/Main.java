@@ -2,17 +2,44 @@ package com.ankit.poc.leetcode;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 public class Main {
   public static void main(String[] args) {
     System.out.println(hasPathagorenTriplets(new int[] {1, 2, 3, 4, 5}, 5));
+    System.out.println(reduceDuplicateRepetative("tesset"));
   }
 
+  public static String reduceDuplicateRepetative(String input) {
+    StringBuilder stack = new StringBuilder();
+    for (char c : input.toCharArray()) {
+      int len = stack.length();
+      if (len > 0 && stack.charAt(len - 1) == c) {
+        stack.deleteCharAt(len - 1);
+      } else {
+        stack.append(c);
+      }
+    }
+    return stack.toString();
+  }
+
+  public static void findMaxCount() {
+    int[] nums = {2, 4, 5, 2, 4, 3, 6, 4, 2};
+
+    Entry<Integer, Long> maxCountEntry = Arrays.stream(nums).boxed()
+        .collect(Collectors.groupingBy(x -> x, LinkedHashMap::new, Collectors.counting()))
+        .entrySet().stream().filter(x -> x.getValue() > 1).findFirst().get();
+    System.out.println("Array: " + Arrays.toString(nums));
+    System.out.printf("Number = %d%n Maximum comes %d time.", maxCountEntry.getKey(),
+        maxCountEntry.getValue());
+  }
 
   private static boolean hasPathagorenTriplets(int[] arr, int n) {
     for (int i = 0; i < n; i++) {
-      arr[i] = arr[i] * arr[i];
+      arr[i] = (int) Math.sqrt(arr[i]);
     }
     Arrays.sort(arr);
     for (int i = n - 1; i >= 2; i--) {

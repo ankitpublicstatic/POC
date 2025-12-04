@@ -15,12 +15,12 @@ import java.util.Stack;
 public class LeetCode {
 
   public static int[] twosum(int[] nums, int target) {
-    HashMap<Integer, Integer> indexVauleMap = new HashMap<>();
+    HashMap<Integer, Integer> valueIndexMap = new HashMap<>();
     for (int i = 0; i < nums.length; i++) {
       int key = target - nums[i];
-      indexVauleMap.put(nums[i], i);
-      if (indexVauleMap.containsKey(key)) {
-        return new int[] {i, indexVauleMap.get(key)};
+      valueIndexMap.put(nums[i], i);
+      if (valueIndexMap.containsKey(key)) {
+        return new int[] {i, valueIndexMap.get(key)};
       }
     }
     return null;
