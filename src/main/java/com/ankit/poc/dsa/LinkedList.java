@@ -28,7 +28,6 @@ public class LinkedList {
   public void insertAtStart(int data) {
     Node node = new Node();
     node.data = data;
-    node.next = null;
 
     node.next = head;
     head = node;
@@ -72,5 +71,18 @@ public class LinkedList {
       // System.out.println("n1 " + n1.data);
       n1 = null;
     }
+  }
+
+  public void reverse() {
+    Node prev = null;
+    Node curr = head;
+    while (curr != null) {
+      Node next = curr.next; // Save next
+      curr.next = prev; // Reverse link
+      prev = curr; // Move previous
+      curr = next; // Move current
+    }
+    head = prev;// New head
+
   }
 }

@@ -5,12 +5,53 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Main {
   public static void main(String[] args) {
     System.out.println(hasPathagorenTriplets(new int[] {1, 2, 3, 4, 5}, 5));
     System.out.println(reduceDuplicateRepetative("tesset"));
+  }
+
+  ExecutorService es = Executors.newFixedThreadPool(50);
+  Semaphore sem = new Semaphore(40); // limit concurrency
+
+  public CompletableFuture<String> callLLM(String payload) {
+    if (!sem.tryAcquire()) {
+      return CompletableFuture.failedFuture(new RejectedExecutionException("too many LLM calls"));
+    }
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return llmClient.call(payload);
+      } finally {
+        sem.release();
+      }
+    }, es).orTimeout(5, TimeUnit.SECONDS);
+  }
+
+  public boolean isAnagram(String s, String t) {
+    if (s.length() != t.length()) {
+      return false;
+    }
+    int[] count = new int[26];
+    for (char c : s.toCharArray()) {
+      count[c - 'a']++;
+    }
+    for (char c : t.toCharArray()) {
+      count[c - 'a']--;
+    }
+    for (int i : count) {
+      if (i != 0) {
+        return false;
+      }
+    }
+    return true;
   }
 
   public static String reduceDuplicateRepetative(String input) {
@@ -42,6 +83,19 @@ public class Main {
       arr[i] = (int) Math.sqrt(arr[i]);
     }
     Arrays.sort(arr);
+    for (int i = n - 1; i >= 2; i--) {
+      int left = 0, right = i - 1;
+      while (left < right) {
+        if (arr[left] + arr[right] == arr[i]) {
+          return true;
+        }
+        if (arr[left] + arr[right] < arr[i]) {
+          left++;
+        } else {
+          right--;
+        }
+      }
+    }
     for (int i = n - 1; i >= 2; i--) {
       int left = 0, right = i - 1;
       while (left < right) {

@@ -4,7 +4,18 @@ import com.ankit.poc.dsa.tree.BinaryTree;
 
 public class Runner {
   public static void main(String[] args) {
-    Runner.testBinaryTree();
+    Runner.testLinkedList();
+  }
+
+  public static void testLinkedList() {
+    LinkedList list = new LinkedList();
+    list.insert(8);
+    list.insert(80);
+    list.insert(9);
+    list.insert(11);
+    // list.insertAt(3, 25);
+    list.reverse();
+    list.show();
   }
 
   public static void testBinaryTree() {
@@ -71,13 +82,4 @@ public class Runner {
     // System.out.println("Size is " + stack.size());
   }
 
-  public static void testLinkedList() {
-    LinkedList list = new LinkedList();
-    list.insert(8);
-    list.insert(80);
-    list.insert(9);
-    list.insert(11);
-    list.insertAtStart(25);
-    list.show();
-  }
 }
