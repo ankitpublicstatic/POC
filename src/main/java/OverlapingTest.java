@@ -12,9 +12,8 @@ public class OverlapingTest {
         Arrays.asList("Chennai", "Bangalore", "Chennai", "Hyderabad", "Bangalore", "Hyderabad");
     // find second duplicate element from the list
     System.out.println(findDuplicateByIndex(list, 2));
-    String str = "TESTDEMOTESTDEMO";
-    String sub = "DEMO";
 
+    // "TESTDEMOTESTDEMO" "DEMO"
     System.out.println(countOverlaping("AAAA", "AA", false));
   }
 
