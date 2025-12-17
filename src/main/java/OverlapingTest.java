@@ -11,13 +11,14 @@ public class OverlapingTest {
     List<String> list =
         Arrays.asList("Chennai", "Bangalore", "Chennai", "Hyderabad", "Bangalore", "Hyderabad");
     // find second duplicate element from the list
+    System.out.println(findDuplicateByIndex(list, 2));
     String str = "TESTDEMOTESTDEMO";
     String sub = "DEMO";
 
     System.out.println(countOverlaping("AAAA", "AA", false));
   }
 
-  public static Entry<String, Long> getDuplicateByIndex(List<String> list, int index) {
+  public static Entry<String, Long> findDuplicateByIndex(List<String> list, int index) {
     return list.stream()
         .collect(Collectors.groupingBy(x -> x, LinkedHashMap::new, Collectors.counting()))
         .entrySet().stream().filter(x -> x.getValue() > 1).collect(Collectors.toList())
@@ -61,8 +62,6 @@ public class OverlapingTest {
     return count;
   }
 }
-
-
 
 // EMP
 //
