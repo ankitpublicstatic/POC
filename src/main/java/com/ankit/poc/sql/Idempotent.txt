@@ -1,0 +1,221 @@
+Idempotent APIs are a core concept in reliable, distributed systems—especially for payments, banking, order processing, and retries.
+
+I’ll explain this clearly + deeply, with real-world examples, HTTP semantics, and Spring Boot implementation.
+
+---
+
+ 1️⃣ What Is an Idempotent API?
+
+> An API is idempotent if calling it multiple times with the same request produces the same result as calling it once.
+
+ Simple definition
+
+```
+1 call  → effect
+10 calls → same effect (not repeated)
+```
+
+---
+
+ 2️⃣ Why Idempotency Is Needed (Real World)
+
+In real systems:
+
+ Network timeouts happen
+ Clients retry requests
+ Load balancers retry
+ Mobile apps resend requests
+
+Without idempotency → duplicate actions:
+
+ Double debit
+ Duplicate orders
+ Duplicate emails
+
+---
+
+ 3️⃣ Idempotency vs Duplicate Requests
+
+❌ Non-idempotent:
+
+```
+POST /debit 100
+POST /debit 100   → balance deducted twice
+```
+
+✅ Idempotent:
+
+```
+POST /debit 100 (same request-id)
+POST /debit 100 → second call ignored / returns same result
+```
+
+---
+
+ 4️⃣ HTTP Methods & Idempotency
+
+| HTTP Method | Idempotent     | Explanation          |
+| ----------- | -------------- | -------------------- |
+| GET         | ✅              | No state change      |
+| PUT         | ✅              | Replace resource     |
+| DELETE      | ✅              | Delete once          |
+| POST        | ❌ (by default) | Creates new resource |
+| PATCH       | ❌              | Partial update       |
+
+⚠️ POST can be made idempotent by design.
+
+---
+
+ 5️⃣ Example: Non-Idempotent Debit API (❌)
+
+```http
+POST /accounts/123/debit
+{
+  "amount": 100
+}
+```
+
+If client retries → money deducted again
+
+---
+
+ 6️⃣ Making a Debit API Idempotent (✅)
+
+ Key Idea
+
+ Client sends Idempotency Key
+ Server processes request once
+ Same key → same response
+
+---
+
+ 6.1 API Request
+
+```http
+POST /accounts/123/debit
+Idempotency-Key: 8f7e-abc-999
+
+{
+  "amount": 100
+}
+```
+
+---
+
+ 6.2 Database Table
+
+```sql
+CREATE TABLE idempotency_keys (
+  key VARCHAR(64) PRIMARY KEY,
+  request_hash VARCHAR(64),
+  response JSON,
+  status VARCHAR(20),
+  created_at TIMESTAMP
+);
+```
+
+---
+
+ 6.3 Spring Boot Filter / Interceptor
+
+```java
+@Component
+public class IdempotencyFilter implements Filter {
+
+    @Autowired
+    IdempotencyRepository repo;
+
+    @Override
+    public void doFilter(...) {
+
+        String key = request.getHeader("Idempotency-Key");
+
+        if (repo.existsById(key)) {
+            IdempotencyRecord record = repo.findById(key).get();
+            response.getWriter().write(record.getResponse());
+            return;
+        }
+
+        chain.doFilter(request, response);
+    }
+}
+```
+
+---
+
+ 6.4 Service Layer Logic
+
+```java
+@Transactional
+public DebitResponse debit(...) {
+    // 1️⃣ Save idempotency key
+    repo.save(new IdempotencyKey(key, IN_PROGRESS));
+
+    // 2️⃣ Perform debit
+    accountService.debit(...);
+
+    // 3️⃣ Save response
+    repo.update(key, SUCCESS, response);
+}
+```
+
+---
+
+ 7️⃣ Step-by-Step Flow (Idempotent Debit)
+
+| Step | What Happens                         |
+| ---- | ------------------------------------ |
+| 1    | Client sends debit + idempotency key |
+| 2    | Server checks key                    |
+| 3    | Not found → process debit            |
+| 4    | Save response                        |
+| 5    | Retry with same key                  |
+| 6    | Server returns saved response        |
+| 7    | No second debit                      |
+
+---
+
+ 8️⃣ Idempotency vs Transactions
+
+| Feature | Transaction     | Idempotency        |
+| ------- | --------------- | ------------------ |
+| Scope   | DB operations   | API calls          |
+| Solves  | Partial failure | Duplicate requests |
+| Layer   | Database        | API layer          |
+
+✔ You usually need both
+
+---
+
+ 9️⃣ Real-World Systems Using Idempotency
+
+ Stripe payments
+ Razorpay
+ PayPal
+ UPI
+ Order creation APIs
+
+---
+
+ 🔥 Interview-Ready One-Liner
+
+> “Idempotent APIs ensure that multiple identical requests produce the same effect as a single request, preventing duplicate side effects in distributed systems, especially during retries and network failures.”
+
+---
+
+ 10️⃣ Best Practices
+
+✔ Use UUID idempotency keys
+✔ Store request hash (prevent misuse)
+✔ Set TTL (cleanup old keys)
+✔ Return same HTTP response
+✔ Combine with transactions
+
+---
+
+If you want next:
+✔ Complete Spring Boot idempotency implementation
+✔ Redis-based idempotency (high scale)
+✔ Difference: Idempotency vs Deduplication
+✔ Saga + idempotency in microservices
+ 
