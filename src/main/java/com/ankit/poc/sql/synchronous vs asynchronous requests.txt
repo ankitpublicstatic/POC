@@ -1,0 +1,350 @@
+In **Spring Boot**, **synchronous vs asynchronous requests** describe **how a request is processed and how the thread behaves** while waiting for work (DB, API calls, IO, etc.).
+
+I’ll explain this **from basics → internals → production usage → code examples → when to use what**, tailored for a **Java backend / system design perspective**.
+
+---
+
+## 1️⃣ Synchronous Requests (Blocking)
+
+### What it means
+
+A **synchronous request** is handled **step by step** on the **same thread**.
+
+* Client sends request
+* Server thread starts processing
+* Thread **waits (blocks)** for:
+
+  * DB response
+  * External API
+  * File IO
+* Response is returned
+* Thread is released
+
+➡️ **Thread is blocked until everything finishes**
+
+---
+
+### Spring Boot default behavior
+
+By default, **Spring MVC is synchronous**.
+
+```
+Client → Controller → Service → Repository → DB
+                    (same thread)
+```
+
+---
+
+### Example (Synchronous Controller)
+
+```java
+@RestController
+@RequestMapping("/sync")
+public class SyncController {
+
+    @GetMapping("/order")
+    public String placeOrder() throws InterruptedException {
+        Thread.sleep(3000); // Simulate DB/API call
+        return "Order placed";
+    }
+}
+```
+
+⏱️ If 100 users hit this endpoint:
+
+* 100 Tomcat threads are blocked
+* Thread pool can exhaust
+* Leads to **latency & downtime**
+
+---
+
+### Thread behavior (Tomcat)
+
+* Uses **Thread-per-request model**
+* Default thread pool ~200
+* Blocking = poor scalability
+
+---
+
+### When synchronous is OK
+
+✅ Simple CRUD
+✅ Low traffic systems
+✅ Fast DB queries
+✅ Internal admin tools
+
+---
+
+## 2️⃣ Asynchronous Requests (Non-blocking / Deferred)
+
+### What it means
+
+The request **does not block the server thread**.
+
+* Server receives request
+* Work is handed off to:
+
+  * Another thread
+  * Event loop
+  * Message queue
+* Original thread is **released**
+* Response is sent later
+
+➡️ **Better scalability and throughput**
+
+---
+
+## 3️⃣ Asynchronous in Spring Boot (3 Ways)
+
+---
+
+## 🟢 Option 1: `@Async` (Thread-based Async)
+
+### How it works
+
+* Uses a **separate thread pool**
+* Controller thread returns immediately
+* Background thread does the work
+
+---
+
+### Enable Async
+
+```java
+@EnableAsync
+@SpringBootApplication
+public class App {}
+```
+
+---
+
+### Service
+
+```java
+@Service
+public class OrderService {
+
+    @Async
+    public CompletableFuture<String> processOrder() {
+        try {
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {}
+        return CompletableFuture.completedFuture("Order completed");
+    }
+}
+```
+
+---
+
+### Controller
+
+```java
+@RestController
+@RequestMapping("/async")
+public class AsyncController {
+
+    private final OrderService service;
+
+    public AsyncController(OrderService service) {
+        this.service = service;
+    }
+
+    @GetMapping("/order")
+    public CompletableFuture<String> placeOrder() {
+        return service.processOrder();
+    }
+}
+```
+
+🧠 **Tomcat thread is released immediately**
+
+---
+
+### Thread pools matter!
+
+```java
+@Bean
+public Executor taskExecutor() {
+    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(10);
+    executor.setMaxPoolSize(50);
+    executor.initialize();
+    return executor;
+}
+```
+
+---
+
+### Use cases
+
+✅ Background jobs
+✅ Notifications
+✅ Email/SMS
+✅ Fire-and-forget
+
+❌ Still **blocking inside async thread**
+❌ Not truly non-blocking IO
+
+---
+
+## 🟢 Option 2: Spring MVC Async (DeferredResult / Callable)
+
+### Controller example
+
+```java
+@GetMapping("/deferred")
+public DeferredResult<String> deferredResult() {
+    DeferredResult<String> result = new DeferredResult<>();
+
+    CompletableFuture.runAsync(() -> {
+        try {
+            Thread.sleep(3000);
+        } catch (Exception e) {}
+        result.setResult("Async response");
+    });
+
+    return result;
+}
+```
+
+✔ Servlet thread released
+✔ Response returned later
+
+---
+
+### Callable example
+
+```java
+@GetMapping("/callable")
+public Callable<String> asyncCall() {
+    return () -> {
+        Thread.sleep(3000);
+        return "Callable async response";
+    };
+}
+```
+
+---
+
+### Use cases
+
+✅ Long-running HTTP requests
+✅ File processing
+✅ Report generation
+
+---
+
+## 🟢 Option 3: Reactive (Spring WebFlux – TRUE async)
+
+### How it’s different
+
+* **Non-blocking IO**
+* Uses **event loop (Netty)**
+* No thread-per-request
+* Handles **millions of connections**
+
+---
+
+### Reactive Controller
+
+```java
+@RestController
+public class ReactiveController {
+
+    @GetMapping("/reactive")
+    public Mono<String> reactive() {
+        return Mono.fromCallable(() -> {
+            Thread.sleep(3000);
+            return "Reactive response";
+        });
+    }
+}
+```
+
+⚠️ `Thread.sleep()` is BAD in reactive – this is just example.
+
+---
+
+### Real reactive DB/API
+
+```java
+@GetMapping("/users")
+public Flux<User> getUsers() {
+    return userRepository.findAll(); // Reactive repository
+}
+```
+
+---
+
+### Use cases
+
+✅ High concurrency
+✅ Streaming APIs
+✅ Real-time systems
+✅ Chat, notifications, feeds
+
+---
+
+## 4️⃣ Comparison Table
+
+| Feature         | Synchronous | Async (`@Async`)    | WebFlux     |
+| --------------- | ----------- | ------------------- | ----------- |
+| Thread blocking | ✅ Yes       | ❌ Controller thread | ❌ No        |
+| Scalability     | ❌ Low       | ⚠ Medium            | ✅ Very High |
+| Complexity      | ✅ Simple    | ⚠ Medium            | ❌ High      |
+| Backpressure    | ❌ No        | ❌ No                | ✅ Yes       |
+| Best for        | CRUD        | Background jobs     | High load   |
+
+---
+
+## 5️⃣ Real-world example: Payment API
+
+### ❌ Synchronous (BAD)
+
+```java
+@PostMapping("/pay")
+public String pay() {
+    bankApi.call(); // 5 sec
+    db.save();
+    return "SUCCESS";
+}
+```
+
+🔴 Thread blocked for 5 seconds
+
+---
+
+### ✅ Async (Better)
+
+```java
+@PostMapping("/pay")
+public CompletableFuture<String> pay() {
+    return paymentService.process();
+}
+```
+
+---
+
+### ✅ Event-driven (BEST)
+
+```
+Client → API → Kafka → Payment Service → DB
+              ↑
+           Immediate ACK
+```
+
+---
+
+## 6️⃣ Interview Summary (One-liner)
+
+> **Synchronous requests block the server thread until completion, while asynchronous requests release the thread and process work in parallel or non-blocking ways, improving scalability and throughput.**
+
+---
+
+If you want, next I can explain:
+✔ **Async vs Reactive in interviews**
+✔ **Thread pool tuning in Spring Boot**
+✔ **Async REST API with job status tracking**
+✔ **Concurrency issues in async APIs**
+
+Just tell me 👍
