@@ -1,0 +1,71 @@
+Two Types of Saga Patterns
+1️⃣ Choreography Saga (Event-driven) ✅ Saga using Events (Event-based Saga) ✅ (Preferred)
+Characteristics:-
+No central coordinator
+Each service reacts to events
+
+Loose coupling
+Choreography-based
+Services react to facts
+
+Example:-   OrderPlaced → PaymentService listens
+			PaymentCompleted → Inventory listens
+
+2️⃣ Orchestration Saga (Command-driven) Saga using Messages (Command-based Saga)
+Characteristics:-
+Direct commands
+Tighter coupling
+Orchestrator usually present
+Central saga orchestrator
+Sends commands
+
+Example:- OrderService → PaymentService
+              "ChargePayment"
+
+
+
+Saga is typically implemented using event-driven choreography, where services publish domain events after local transactions. Message-based orchestration is also possible but leads to tighter coupling and reduced scalability.
+
+Best practice:
+
+Hybrid model — Commands internally, Events externally
+
+Message vs Event in Saga (Final Verdict)
+| Use           | Use This          |
+| ------------- | ----------------- |
+| Start Saga    | Command / Message |
+| Progress Saga | Events            |
+| Notify Others | Events            |
+| Compensations | Commands          |
+
+| Aspect        | Message-based | Event-based  |
+| ------------- | ------------- | ------------ |
+| Coupling      | High          | Low          |
+| Scalability   | Medium        | High         |
+| Extensibility | Hard          | Easy         |
+| Style         | Orchestration | Choreography |
+| Preferred     | ❌             | ✅            |
+
+
+Step-by-step flow
+
+1. OrderService → OrderCreated EVENT
+2. PaymentService → PaymentCompleted EVENT
+3. InventoryService → InventoryReserved EVENT
+4. ShippingService → ShipmentCreated EVENT
+
+Failure scenario
+
+Inventory fails → InventoryFailed EVENT
+→ PaymentService → RefundPayment
+→ OrderService → OrderCancelled
+
+
+Kafka Topics (Example)
+| Topic            | Event                              |
+| ---------------- | ---------------------------------- |
+| order-events     | OrderCreated, OrderCancelled       |
+| payment-events   | PaymentCompleted, PaymentFailed    |
+| inventory-events | InventoryReserved, InventoryFailed |
+
+

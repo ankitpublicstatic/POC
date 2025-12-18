@@ -1,0 +1,90 @@
+Transaction Outbox Pattern (Deep Dive)
+1. The Problem It Solves
+	Without Outbox (❌)
+	saveOrder();
+	kafka.send(orderCreatedEvent); // ❌ crash here
+
+	❌ DB committed
+	❌ Event NOT published
+
+➡ System inconsistent
+
+2. What is Transaction Outbox?
+
+Transaction Outbox ensures atomicity between DB state change and event publication without 2PC.
+
+✔ DB update
+✔ Event saved
+✔ Same DB transaction
+
+3. Outbox Flow
+Business Table   Outbox Table
+     ↓                ↓
+Order saved     Event saved
+     ↓                ↓
+Single DB transaction commit
+
+
+Then:
+
+Background publisher reads outbox
+
+Publishes to Kafka
+
+Marks event as sent
+
+4. Outbox Table Schema
+CREATE TABLE outbox_event (
+    id UUID PRIMARY KEY,
+    aggregate_type VARCHAR(50),
+    aggregate_id VARCHAR(50),
+    event_type VARCHAR(50),
+    payload JSONB,
+    status VARCHAR(20),
+    created_at TIMESTAMP
+);
+
+4. Failure Scenarios (Handled)
+| Failure           | Result              |
+| ----------------- | ------------------- |
+| App crash         | Event still in DB   |
+| Kafka down        | Retry later         |
+| Duplicate publish | Idempotent consumer |
+ 
+5. Transaction Outbox + Saga (Best Practice)
+			
+			Local Transaction
+			   ↓
+			Outbox Event
+			   ↓
+			Kafka
+			   ↓
+			Saga continues
+
+
+📌 Outbox is foundation of reliable Saga
+
+PART 6️⃣ — Anti-patterns to Avoid
+
+❌ DB + Kafka in same @Transactional
+❌ Relying on exactly-once
+❌ Blocking Kafka send
+❌ Skipping idempotency
+
+PART 7️⃣ — Interview-Ready Summary
+Saga vs 2PC
+
+2PC provides strong consistency but does not scale and blocks resources, while Saga provides eventual consistency using compensating transactions and is cloud-native.
+
+Outbox Pattern
+
+Transaction Outbox ensures reliable event publishing by storing events in the same database transaction as business changes, avoiding dual-write problems.
+
+If you want next:
+✔ Outbox with Debezium (CDC)
+✔ Saga state machine implementation
+✔ Idempotency patterns
+✔ Exactly-once myth in Kafka
+✔ Real payment saga design
+
+Just say 👍

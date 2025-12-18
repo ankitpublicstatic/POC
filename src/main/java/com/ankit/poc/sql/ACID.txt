@@ -1,0 +1,226 @@
+ACID → correctness & reliability of transactions
+
+Indexes → performance & fast data access
+
+1️⃣ ACID Properties in SQL Databases: Atomicity Consistency
+
+ACID defines the guarantees a database gives when executing transactions.
+A transaction = a sequence of SQL operations treated as a single unit.
+
+Example:
+
+	BEGIN;	
+	UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+	UPDATE accounts SET balance = balance + 100 WHERE id = 2;	
+	COMMIT;
+
+
+If anything fails → database must stay correct.
+
+1. A — Atomicity (All or Nothing)
+A transaction either fully succeeds or fully fails
+
+What it means
+
+Partial changes are never committed
+If one statement fails → everything is rolled back
+
+Example:-
+	BEGIN;
+	INSERT INTO orders VALUES (101, 'Ankit');
+	INSERT INTO order_items VALUES (NULL, 101); -- fails (NULL not allowed)
+	ROLLBACK;
+
+
+✔ No data is inserted at all
+❌ Half-written data is not allowed
+
+2. C — Consistency (Valid State to Valid State)
+
+Transactions move the database from one valid state to another
+
+		What it ensures
+				Constraints are never violated
+				Rules like:
+				Primary Key
+				Foreign Key
+				NOT NULL
+				CHECK
+				UNIQUE
+
+Example:-
+balance >= 0
+
+
+If a transaction tries to violate this:
+
+	UPDATE accounts SET balance = -500 WHERE id = 1;
+
+❌ Transaction fails → DB remains consistent
+
+3. I — Isolation (No Dirty Interference)
+
+Concurrent transactions behave as if they ran one-by-one
+Problem it solves
+Multiple users accessing data at the same time.
+
+Isolation issues
+
+| Issue               | Meaning                           |
+| ------------------- | --------------------------------- |
+| Dirty Read          | Read uncommitted data             |
+| Non-repeatable Read | Same query gives different result |
+| Phantom Read        | New rows appear                   |
+
+
+Isolation levels:-
+	READ UNCOMMITTED
+	READ COMMITTED
+	REPEATABLE READ
+	SERIALIZABLE
+
+
+Example:-
+
+	SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+
+✔ Higher isolation = safer
+❌ Higher isolation = slower
+
+4. D — Durability (Once Committed, Always Saved)
+ 
+After COMMIT, data survives crashes, power loss, restart
+
+How DB ensures durability
+
+Write-Ahead Logging (WAL)
+
+Redo logs
+
+Disk flush before commit
+
+COMMIT;
+
+
+✔ Data is permanently stored
+✔ Survives DB restart
+
+✅ Summary of ACID
+| Property    | Guarantees                   |
+| ----------- | ---------------------------- |
+| Atomicity   | No partial transactions      |
+| Consistency | Rules always valid           |
+| Isolation   | Concurrent safety            |
+| Durability  | Data never lost after commit |
+
+2️⃣ Index in SQL Databases
+
+An index is a data structure that improves query performance.
+Think of an index like a book’s index instead of scanning every page.
+
+Why Indexes Exist
+
+Without index:
+
+	SELECT * FROM users WHERE email = 'ankit@gmail.com';
+
+
+❌ Full table scan (slow)
+
+With index:
+
+	CREATE INDEX idx_user_email ON users(email);
+
+
+✔ Fast lookup (logarithmic time)
+
+How Index Works Internally
+
+Most SQL databases use B-Tree (or variants)
+
+        [ M ]
+       /     \
+   [A-F]   [N-Z]
+
+
+Balanced tree
+
+Sorted
+
+Fast search: O(log n)
+
+Types of Indexes
+1️⃣ Primary Index
+PRIMARY KEY (id)
+
+
+Automatically created
+
+Unique + Not Null
+
+2️⃣ Unique Index
+	CREATE UNIQUE INDEX idx_email ON users(email);
+
+
+Prevents duplicate values
+
+3️⃣ Composite Index
+	CREATE INDEX idx_user_city_age ON users(city, age);
+
+
+Used when:
+
+WHERE city = 'Delhi' AND age = 25;
+
+
+⚠ Order matters!
+
+4️⃣ Clustered Index (MySQL InnoDB)
+
+Data stored physically sorted
+
+Only one per table
+
+Primary key = clustered index
+
+5️⃣ Non-Clustered Index
+
+Index separate from table data
+
+Points to row location
+
+When NOT to Use Index
+
+❌ On small tables
+❌ On frequently updated columns
+❌ Too many indexes slow down INSERT/UPDATE/DELETE
+
+Index vs ACID (Important Interview Point)
+
+| ACID                  | Index              |
+| --------------------- | ------------------ |
+| Data correctness      | Data performance   |
+| Transaction guarantee | Query optimization |
+| Logical concept       | Physical structure |
+| Always required       | Optional           |
+
+
+Indexes do not break ACID, but:
+	More indexes → slower writes	
+	But reads become faster
+	
+🔥 Real-World Example (Bank System)
+
+ACID ensures:
+	
+	No money loss	
+	No double debit
+	Crash-safe transactions
+
+Index ensures:
+	
+	Fast account lookup
+	Quick transaction history queries
+	
+	
