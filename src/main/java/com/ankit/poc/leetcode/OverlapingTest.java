@@ -1,7 +1,10 @@
+package com.ankit.poc.leetcode;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -60,26 +63,52 @@ public class OverlapingTest {
     }
     return count;
   }
+
+
+  // EMP
+  //
+  // NAME ID MANAGERID
+  //
+  // RAKESH 1
+  //
+  // ABHISHEK 2 1
+  //
+  // PRAKASH 3 2
+  //
+  // MANJU 4 3
+  //
+  // SHINATH 5 2
+  //
+  // Get employees and their manager names ?
+  //
+  // select e.name as employee_name, e.name as manager_name from emp e
+  // left join emp r on e.managerid = r.id;
+  //
+
+  // public static void main(String[] args) {
+  // System.out.println(solution("The Codility Coders Test", "Codility tests the codes of coders"));
+  // }
+
+  public String solution(String dictionary, String message) {
+    // Implement your solution here
+
+    // Convert dictionary to lowercase set for fast lookup
+    Set<String> dictionarySet = new HashSet<>();
+    for (String word : dictionary.split(" ")) {
+      dictionarySet.add(word.toLowerCase());
+    }
+
+    // Split message into words
+    String[] words = message.split(" ");
+
+    // Process each word
+    for (int i = 0; i < words.length; i++) {
+      String lowerWord = words[i].toLowerCase();
+      if (!dictionarySet.contains(lowerWord)) {
+        words[i] = "###";
+      }
+    }
+    // Rebuild sentence
+    return String.join(" ", words);
+  }
 }
-
-// EMP
-//
-// NAME ID MANAGERID
-//
-// RAKESH 1
-//
-// ABHISHEK 2 1
-//
-// PRAKASH 3 2
-//
-// MANJU 4 3
-//
-// SHINATH 5 2
-//
-// Get employees and their manager names ?
-//
-// select e.name as employee_name, e.name as manager_name from emp e
-// left join emp r on e.managerid = r.id;
-//
-
-
