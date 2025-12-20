@@ -1,0 +1,338 @@
+In **Java Design Patterns**, *Singleton* ensures **only one instance of a class exists** and provides a **global access point** to it.
+
+There are **multiple types of Singleton implementations**, each solving specific problems like **thread safety, performance, lazy loading**, etc.
+This is a **very common interview topic** (especially for Java + Spring roles).
+
+---
+
+## 1️⃣ Eager Initialization Singleton
+
+### Concept
+
+* Instance is created **at class loading time**
+* Simple and thread-safe (JVM guarantees)
+
+### Code
+
+```java
+public class EagerSingleton {
+
+    private static final EagerSingleton INSTANCE = new EagerSingleton();
+
+    private EagerSingleton() { }
+
+    public static EagerSingleton getInstance() {
+        return INSTANCE;
+    }
+}
+```
+
+### ✅ Pros
+
+* Thread-safe by default
+* Simple implementation
+
+### ❌ Cons
+
+* Instance created even if **never used**
+* Memory waste for heavy objects
+
+### 📌 Use when
+
+* Singleton is **always needed**
+* Object creation is cheap
+
+---
+
+## 2️⃣ Lazy Initialization Singleton (Not Thread-Safe)
+
+### Concept
+
+* Instance created **only when requested**
+* ❌ Not thread-safe
+
+### Code
+
+```java
+public class LazySingleton {
+
+    private static LazySingleton instance;
+
+    private LazySingleton() { }
+
+    public static LazySingleton getInstance() {
+        if (instance == null) {
+            instance = new LazySingleton();
+        }
+        return instance;
+    }
+}
+```
+
+### ❌ Problem
+
+In multithreading:
+
+```text
+Thread A & Thread B may create TWO instances
+```
+
+### 📌 Use when
+
+* **Single-threaded** environment only
+
+---
+
+## 3️⃣ Thread-Safe Singleton (Synchronized Method)
+
+### Concept
+
+* Synchronize `getInstance()` method
+
+### Code
+
+```java
+public class ThreadSafeSingleton {
+
+    private static ThreadSafeSingleton instance;
+
+    private ThreadSafeSingleton() { }
+
+    public static synchronized ThreadSafeSingleton getInstance() {
+        if (instance == null) {
+            instance = new ThreadSafeSingleton();
+        }
+        return instance;
+    }
+}
+```
+
+### ✅ Pros
+
+* Thread-safe
+
+### ❌ Cons
+
+* Performance hit (synchronization on every call)
+
+### 📌 Use when
+
+* Low-frequency calls
+* Simple multithreaded apps
+
+---
+
+## 4️⃣ Double-Checked Locking Singleton (Best Classic Approach)
+
+### Concept
+
+* Synchronize **only when instance is null**
+* Use `volatile` to avoid instruction reordering
+
+### Code
+
+```java
+public class DoubleCheckedSingleton {
+
+    private static volatile DoubleCheckedSingleton instance;
+
+    private DoubleCheckedSingleton() { }
+
+    public static DoubleCheckedSingleton getInstance() {
+        if (instance == null) {
+            synchronized (DoubleCheckedSingleton.class) {
+                if (instance == null) {
+                    instance = new DoubleCheckedSingleton();
+                }
+            }
+        }
+        return instance;
+    }
+}
+```
+
+### ✅ Pros
+
+* Thread-safe
+* High performance
+
+### ❌ Cons
+
+* Slightly complex
+
+### 📌 Use when
+
+* **High-performance, multithreaded systems**
+* Very common in real-world Java apps
+
+---
+
+## 5️⃣ Bill Pugh Singleton (Initialization-on-Demand Holder)
+
+### ⭐ Most Recommended (Interview Favorite)
+
+### Concept
+
+* Uses **static inner class**
+* JVM loads inner class only when accessed
+
+### Code
+
+```java
+public class BillPughSingleton {
+
+    private BillPughSingleton() { }
+
+    private static class SingletonHelper {
+        private static final BillPughSingleton INSTANCE =
+                new BillPughSingleton();
+    }
+
+    public static BillPughSingleton getInstance() {
+        return SingletonHelper.INSTANCE;
+    }
+}
+```
+
+### ✅ Pros
+
+* Lazy initialization
+* Thread-safe
+* No synchronization overhead
+
+### 📌 Use when
+
+* You want **clean, efficient, production-ready singleton**
+
+---
+
+## 6️⃣ Enum Singleton (Best & Safest)
+
+### ⭐⭐⭐ Best Solution (Joshua Bloch Recommended)
+
+### Concept
+
+* Enum ensures:
+
+  * Single instance
+  * Serialization safety
+  * Reflection attack protection
+
+### Code
+
+```java
+public enum EnumSingleton {
+    INSTANCE;
+
+    public void doSomething() {
+        System.out.println("Singleton via Enum");
+    }
+}
+```
+
+### ✅ Pros
+
+* Thread-safe
+* Serialization safe
+* Reflection safe
+* Very simple
+
+### ❌ Cons
+
+* Cannot extend classes
+* Less flexible (some frameworks dislike enums)
+
+### 📌 Use when
+
+* You want **absolute safety**
+* Configuration managers, constants, utilities
+
+---
+
+## 7️⃣ Singleton with Serialization Protection
+
+### Problem
+
+Serialization can break singleton:
+
+```java
+ObjectInputStream -> creates NEW instance
+```
+
+### Solution
+
+Implement `readResolve()`
+
+```java
+protected Object readResolve() {
+    return getInstance();
+}
+```
+
+---
+
+## 8️⃣ Singleton with Reflection Protection
+
+### Problem
+
+Reflection can access private constructor
+
+### Solution
+
+```java
+private Singleton() {
+    if (instance != null) {
+        throw new RuntimeException("Use getInstance()");
+    }
+}
+```
+
+---
+
+## 🔥 Comparison Table (Interview Gold)
+
+| Type           | Lazy | Thread Safe | Performance | Recommended |
+| -------------- | ---- | ----------- | ----------- | ----------- |
+| Eager          | ❌    | ✅           | High        | ❌           |
+| Lazy (basic)   | ✅    | ❌           | High        | ❌           |
+| Synchronized   | ✅    | ✅           | Low         | ❌           |
+| Double Checked | ✅    | ✅           | High        | ✅           |
+| Bill Pugh      | ✅    | ✅           | Very High   | ⭐⭐⭐         |
+| Enum           | ✅    | ✅           | Very High   | ⭐⭐⭐⭐        |
+
+---
+
+## 🎯 What Interviewers Expect You to Say
+
+👉 **Best Singleton?**
+
+* **Enum Singleton** (most robust)
+* **Bill Pugh Singleton** (best classic Java)
+
+👉 **Why not synchronized?**
+
+* Performance overhead
+
+👉 **How singleton breaks?**
+
+* Reflection
+* Serialization
+* Cloning
+* Classloaders
+
+👉 **How to fix?**
+
+* Enum
+* `readResolve()`
+* Constructor guard
+
+---
+
+If you want, I can:
+
+* Explain **how Spring handles Singleton internally**
+* Show **real-world microservice use cases**
+* Give **interview Q&A with answers**
+* Compare **Singleton vs Prototype (Spring scope)**
+
+Just tell me 👍

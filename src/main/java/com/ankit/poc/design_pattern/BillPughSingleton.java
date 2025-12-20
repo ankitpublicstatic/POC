@@ -1,16 +1,16 @@
 package com.ankit.poc.design_pattern;
 
-public class BillPushSingleton {
-  private BillPushSingleton() {
+public class BillPughSingleton {
+  private BillPughSingleton() {
 
   }
 
   // Inner static helper class not loaded until getInstance() is called
   private static class SingletonHelper {
-    private static final BillPushSingleton INSTANCE = new BillPushSingleton();
+    private static final BillPughSingleton INSTANCE = new BillPughSingleton();
   }
 
-  public static BillPushSingleton getInstance() {
+  public static BillPughSingleton getInstance() {
     return SingletonHelper.INSTANCE;
   }
 }

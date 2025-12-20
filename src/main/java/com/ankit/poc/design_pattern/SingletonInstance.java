@@ -1,3 +1,4 @@
+package com.ankit.poc.design_pattern;
 
 public class SingletonInstance {
   private static SingletonInstance instance;

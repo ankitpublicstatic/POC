@@ -14,5 +14,5 @@ public class BasicThreadSafeSingleton {
     return instance;
   }
 }
-// ✅ Thread-safe but ⚠️ slow — synchronized makes every access serialized, even after the instance
-// is created.
+// ✅ Thread-safe but ⚠️ slow — synchronized makes every access serialized, even after the
+// instance is created.
