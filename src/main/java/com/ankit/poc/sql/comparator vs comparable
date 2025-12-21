@@ -1,0 +1,118 @@
+Great question! Understanding the **difference between `Comparator` and `Comparable`** is essential for sorting custom objects in Java.
+
+---
+
+## ✅ Purpose
+
+Both `Comparator` and `Comparable` are used to **compare Java objects**, typically for **sorting** collections like `List`, `Set`, `Map`, etc.
+
+| Aspect              | `Comparable`                       | `Comparator`                           |
+| ------------------- | ---------------------------------- | -------------------------------------- |
+| **Package**         | `java.lang`                        | `java.util`                            |
+| **Implemented by**  | The class itself (e.g., `Student`) | External to the class (separate logic) |
+| **Method**          | `compareTo(T o)`                   | `compare(T o1, T o2)`                  |
+| **Sorting Logic**   | Natural ordering (default)         | Custom ordering (multiple ways)        |
+| **Modifies class?** | Yes                                | No                                     |
+| **Use case**        | One standard sort order            | Multiple custom sort orders            |
+
+---
+
+## 🧪 1. Comparable (Natural Ordering)
+
+### 🔹 Syntax:
+
+```java
+public class Student implements Comparable<Student> {
+    int id;
+    String name;
+
+    public int compareTo(Student other) {
+        return this.id - other.id; // ascending by ID
+    }
+}
+```
+
+### 🔹 Use:
+
+```java
+Collections.sort(studentList); // uses compareTo()
+```
+
+---
+
+## 🧪 2. Comparator (Custom Ordering)
+
+### 🔹 Syntax (with anonymous class or lambda):
+
+```java
+Comparator<Student> nameComparator = new Comparator<Student>() {
+    public int compare(Student s1, Student s2) {
+        return s1.name.compareTo(s2.name); // ascending by name
+    }
+};
+```
+
+OR using lambda:
+
+```java
+Comparator<Student> nameComparator = (s1, s2) -> s1.name.compareTo(s2.name);
+```
+
+### 🔹 Use:
+
+```java
+Collections.sort(studentList, nameComparator);
+```
+
+You can even use multiple sort criteria:
+
+```java
+Comparator<Student> byIdThenName = Comparator
+    .comparing(Student::getId)
+    .thenComparing(Student::getName);
+```
+
+---
+
+## 💡 Summary Table:
+
+| Feature        | Comparable                 | Comparator                                  |
+| -------------- | -------------------------- | ------------------------------------------- |
+| In same class? | ✅ Yes                      | ❌ No (external logic)                       |
+| Method name    | `compareTo()`              | `compare()`                                 |
+| Sorting type   | Natural order              | Custom order (flexible)                     |
+| Java 8+ Usage  | Not functional             | Lambda-friendly (`Comparator.comparing`)    |
+| Use Case       | Default sort (e.g., by ID) | Sort by different fields (name, date, etc.) |
+
+---
+
+## 🔁 Example:
+
+Let's say you have:
+
+```java
+class Student implements Comparable<Student> {
+    int id;
+    String name;
+    public int compareTo(Student o) {
+        return this.id - o.id; // natural order by id
+    }
+}
+```
+
+For sorting by `name`:
+
+```java
+Collections.sort(list, Comparator.comparing(s -> s.name));
+```
+
+---
+
+## 🧠 When to Use:
+
+* Use **`Comparable`** when the **natural sorting order** is clear and consistent (e.g., Employee by `id`).
+* Use **`Comparator`** when you need **multiple ways to sort** (e.g., by name, age, salary).
+
+---
+
+Let me know if you'd like a working code snippet to test in your IDE or how this relates to `TreeSet` / `TreeMap`!

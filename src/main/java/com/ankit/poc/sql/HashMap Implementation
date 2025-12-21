@@ -1,0 +1,182 @@
+Great question! Understanding how **`HashMap` works internally in Java**, including the **old and new changes (especially since Java 8)**, is crucial for writing performant code. Let's dive **deep** into the internals and evolution of `HashMap`.
+
+---
+
+# 🧠 What is a `HashMap`?
+
+A **`HashMap`** is a part of Java’s `java.util` package and is one of the most commonly used data structures. It stores data as **key-value pairs** and provides **constant-time complexity O(1)** for basic operations like `put()`, `get()`, and `remove()` **under ideal conditions**.
+
+---
+
+# ⚙️ Internal Working of HashMap (Overview)
+
+### 🔹 Core Concepts:
+
+* **Bucket**: Internal array (`Node<K,V>[] table`) where entries are stored.
+* **Hash Function**: Converts key into a **hash code**, then maps to a bucket index.
+* **Collision Handling**: If multiple keys hash to the same bucket index:
+
+  * Pre-Java 8: **Linked List**
+  * Java 8+: **Linked List → Balanced Tree (Red-Black Tree)** when threshold crossed
+* **Load Factor**: When to resize (default: `0.75`).
+* **Rehashing**: When the array is resized, all keys are rehashed.
+
+---
+
+# 🛠️ How HashMap Internally Works (Step-by-Step)
+
+### 1. **Hash Code Calculation**
+
+When you do:
+
+```java
+map.put("key1", "value1");
+```
+
+Java internally computes:
+
+```java
+int hash = hash(key);  // Uses key.hashCode()
+int index = (n - 1) & hash; // Maps hash to bucket index
+```
+
+Java uses **bitwise AND** instead of modulo for performance.
+
+### 2. **Bucket Index Mapping**
+
+The bucket index is calculated by:
+
+```java
+index = (hashcode) & (array length - 1)
+```
+
+If array length = 16, and hashcode = 122323, index = `122323 & 15 = 3`.
+
+### 3. **Collision Handling**
+
+If two keys map to the same index:
+
+* Before Java 8: **Chained in Linked List**.
+* Since Java 8: If collisions exceed **TREEIFY_THRESHOLD (default = 8)** and array size > **MIN_TREEIFY_CAPACITY (default = 64)**, the linked list is converted into a **Red-Black Tree** for faster lookup.
+
+---
+
+# 🔄 Java 7 vs Java 8: Key Changes
+
+| Feature            | Java 7                                      | Java 8                           |
+| ------------------ | ------------------------------------------- | -------------------------------- |
+| Collision Handling | **Linked List only**                        | **Linked List → Red-Black Tree** |
+| Tree Threshold     | Not applicable                              | TREEIFY_THRESHOLD = 8            |
+| Resizing           | Causes rehash + reinsertion                 | Better handling with `resize()`  |
+| Null Handling      | Allows one `null` key, multiple null values | Same                             |
+| Thread-Safety      | Not thread-safe                             | Not thread-safe                  |
+
+---
+
+## 🔄 HashMap Treeification (Java 8+)
+
+### When is a Linked List converted to a Red-Black Tree?
+
+* When a single bucket contains more than 8 nodes (`TREEIFY_THRESHOLD = 8`)
+* And the map size is greater than 64 (`MIN_TREEIFY_CAPACITY = 64`)
+
+This improves **worst-case time complexity** from **O(n)** to **O(log n)** for retrieval in heavily loaded buckets.
+
+```java
+// From java.util.HashMap
+if (binCount >= TREEIFY_THRESHOLD - 1) {
+    treeifyBin(tab, hash);
+}
+```
+
+---
+
+## 🔁 Resizing (Rehashing)
+
+* Triggered when:
+
+  ```java
+  size >= capacity * load factor
+  ```
+
+  Example: Capacity = 16, Load factor = 0.75 → Threshold = 12
+
+* Doubles the array size and **rehashes all existing entries** to new bucket positions.
+
+⚠️ **Performance Hit**: Resizing is expensive — avoid frequent resizing by initializing with expected size:
+
+```java
+new HashMap<>(expectedSize, 0.75f);
+```
+
+---
+
+## 📦 Internal Data Structure (Java 8)
+
+```java
+static class Node<K,V> implements Map.Entry<K,V> {
+    final int hash;
+    final K key;
+    V value;
+    Node<K,V> next; // for chaining or tree node reference
+}
+```
+
+If TreeNode is used:
+
+```java
+static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
+    TreeNode<K,V> parent, left, right;
+    boolean red;
+    // tree methods here
+}
+```
+
+---
+
+# ✅ Performance Summary
+
+| Operation  | Best Case | Worst Case (Java 7) | Worst Case (Java 8) |
+| ---------- | --------- | ------------------- | ------------------- |
+| `put()`    | O(1)      | O(n) (Linked List)  | O(log n) (Tree)     |
+| `get()`    | O(1)      | O(n)                | O(log n)            |
+| `remove()` | O(1)      | O(n)                | O(log n)            |
+
+---
+
+# 💥 HashMap Common Pitfalls
+
+1. **Mutable keys**: If key's hashCode changes after insertion → `get()` fails.
+2. **Thread-unsafety**: Not safe for multi-threaded use → Use `ConcurrentHashMap`.
+3. **Frequent resizing**: Leads to performance degradation.
+4. **Bad hashCode() implementation**: Causes poor distribution, performance drops.
+
+---
+
+# 🧪 Example Code
+
+```java
+Map<String, String> map = new HashMap<>();
+
+map.put("apple", "fruit");
+map.put("carrot", "vegetable");
+
+System.out.println(map.get("apple")); // fruit
+```
+
+---
+
+# 🔍 Tools to Inspect
+
+* Use **JDK Tools** like `jvisualvm` or **debug with breakpoints** to trace rehashing/treeification.
+* Use **`System.identityHashCode()`** to inspect actual hash values.
+
+---
+
+Would you like to also explore:
+
+* How `ConcurrentHashMap` differs internally?
+* How hashCode and equals impact hashmap behavior?
+* Real-world issues caused by hash collisions?
+
+Let me know!

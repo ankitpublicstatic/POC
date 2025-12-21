@@ -1,0 +1,77 @@
+In microservices architecture, there isn't a strict *"type"* classification like in object-oriented programming (e.g., abstract vs concrete classes), but microservices **can be categorized based on their roles, responsibilities, and communication patterns** within a system. Below are common **types of microservices** based on how they're used:
+
+---
+
+### 🔹 1. **Domain (Business) Microservices**
+
+* Represent **core business functionalities**.
+* Each microservice is centered around a **bounded context** (from Domain-Driven Design).
+* Example: `UserService`, `OrderService`, `InventoryService`
+
+---
+
+### 🔹 2. **Infrastructure Microservices**
+
+* Provide **platform-level services** needed by business microservices.
+* Example: `AuthenticationService`, `LoggingService`, `NotificationService`, `MonitoringService`
+
+---
+
+### 🔹 3. **API Gateway (Edge) Microservices**
+
+* Act as an **entry point** for all client requests.
+* Handle **routing, rate limiting, authentication, and protocol translation**.
+* Tools: Netflix Zuul, Spring Cloud Gateway, Kong
+
+---
+
+### 🔹 4. **Orchestration Microservices**
+
+* Coordinate **workflows across multiple services**.
+* Often use **sagas** or **orchestrators** like Camunda, Temporal, or Cadence.
+* Example: A `BookingOrchestrator` calling `FlightService`, `HotelService`, etc.
+
+---
+
+### 🔹 5. **Aggregator Microservices**
+
+* Aggregate data from multiple microservices and present it as a **single unified response**.
+* Useful for **composite UI views**.
+* Example: `DashboardService` combining metrics from `Sales`, `Inventory`, and `CustomerFeedback`.
+
+---
+
+### 🔹 6. **Proxy/Adapter Microservices**
+
+* Serve as a **bridge between legacy systems and microservices**.
+* Translate between old formats (SOAP/XML) and new (REST/JSON).
+* Often part of **strangler pattern** to slowly replace monolith.
+
+---
+
+### 🔹 7. **Utility or Helper Microservices**
+
+* Offer shared utilities or cross-cutting concerns like:
+
+  * **EmailService**
+  * **PDFGenerationService**
+  * **AuditService**
+
+---
+
+### 🔹 8. **Batch or Event Processor Microservices**
+
+* Designed for **scheduled tasks**, **stream processing**, or **message consumption**.
+* Often stateless and short-lived.
+* Example: `DailyReportGenerator`, `KafkaConsumerService`
+
+---
+
+### Bonus: **Stateless vs Stateful Microservices**
+
+* **Stateless**: Do not maintain session/state across requests. Easier to scale.
+* **Stateful**: Maintain internal state (e.g., sessions, workflows). Require more careful design (often backed by a DB or event store).
+
+---
+
+Would you like examples in a specific tech stack like Spring Boot, Node.js, or AWS?

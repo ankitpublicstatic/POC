@@ -1,0 +1,131 @@
+Sure! In Java, **errors** are represented by classes that extend the `java.lang.Error` class. These are part of the **Throwable hierarchy**, but unlike **Exceptions**, **Errors indicate serious problems** that a program **should not try to catch** — typically related to **system-level failures**.
+
+---
+
+## 💥 What is `Error` in Java?
+
+* Subclass of `Throwable` (like `Exception`)
+* Indicates **serious issues** with the **JVM or system**
+* Usually **not recoverable**
+* Examples: `OutOfMemoryError`, `StackOverflowError`, etc.
+
+---
+
+# 🔴 Common Java Error Classes (Unchecked & Fatal)
+
+| **Error Class**                | **Description**                                                                       |
+| ------------------------------ | ------------------------------------------------------------------------------------- |
+| `OutOfMemoryError`             | JVM runs out of heap memory                                                           |
+| `StackOverflowError`           | Stack exceeds its limit, often due to **infinite recursion**                          |
+| `VirtualMachineError`          | Base class for JVM-related fatal errors                                               |
+| `InternalError`                | Indicates an internal error in the JVM                                                |
+| `NoClassDefFoundError`         | A class was present during compilation, but **not found at runtime**                  |
+| `UnsatisfiedLinkError`         | Native library (JNI) method could not be linked                                       |
+| `ClassFormatError`             | The class file is malformed or incompatible                                           |
+| `UnknownError`                 | Unknown serious error, rare, used as a fallback                                       |
+| `AssertionError`               | Thrown when an `assert` statement fails                                               |
+| `IncompatibleClassChangeError` | Indicates a class has changed incompatibly after compilation                          |
+| `NoSuchMethodError`            | A method was expected but not found (usually after class changes without recompiling) |
+
+---
+
+# 📊 Error vs Exception
+
+| Feature     | `Error`                                  | `Exception`                           |
+| ----------- | ---------------------------------------- | ------------------------------------- |
+| Recoverable | ❌ No                                     | ✅ Usually yes                         |
+| Catchable   | ⛔ Not recommended                        | ✅ Should be handled properly          |
+| Extends     | `Throwable`                              | `Throwable`                           |
+| Examples    | `OutOfMemoryError`, `StackOverflowError` | `IOException`, `NullPointerException` |
+| Handling    | Should not be caught (usually fatal)     | Can be caught and recovered           |
+
+---
+
+## 🧪 Example: StackOverflowError
+
+```java
+public class StackOverflowExample {
+    public static void recursive() {
+        recursive(); // infinite recursion
+    }
+
+    public static void main(String[] args) {
+        recursive();
+    }
+}
+```
+
+📌 Output:
+
+```
+Exception in thread "main" java.lang.StackOverflowError
+```
+
+---
+
+## 🧪 Example: OutOfMemoryError
+
+```java
+import java.util.ArrayList;
+import java.util.List;
+
+public class OOMExample {
+    public static void main(String[] args) {
+        List<byte[]> list = new ArrayList<>();
+        while (true) {
+            list.add(new byte[1024 * 1024]); // keep adding 1MB blocks
+        }
+    }
+}
+```
+
+📌 Output:
+
+```
+Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+```
+
+---
+
+## ✅ Can You Catch an Error?
+
+Yes, technically:
+
+```java
+try {
+    recursive();
+} catch (StackOverflowError e) {
+    System.out.println("Caught error!");
+}
+```
+
+But it's **strongly discouraged** except for logging or shutdown tasks.
+
+---
+
+## 🧱 Error Hierarchy
+
+```
+Throwable
+├── Error
+│   ├── OutOfMemoryError
+│   ├── StackOverflowError
+│   ├── VirtualMachineError
+│   └── ...
+└── Exception
+    ├── IOException
+    ├── RuntimeException
+    └── ...
+```
+
+---
+
+## 🔐 Best Practices
+
+* Don't catch `Error` unless **absolutely necessary**
+* Use `Exception` handling for recoverable conditions
+* Watch for memory leaks, recursion bugs, and native code issues that may throw `Error`
+
+---
+
+Would you like examples of **custom error classes** or how **JVM logs errors internally**?

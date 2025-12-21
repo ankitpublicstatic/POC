@@ -1,0 +1,450 @@
+# OOM when launching a Java app in Docker — deep dive
+
+## 1) What is OOM?
+
+**OOM = Out Of Memory.** In Java it usually surfaces as a `java.lang.OutOfMemoryError` thrown by the JVM when it cannot allocate memory required for an operation. In containers (Docker) you can hit OOM in two ways:
+
+* **JVM-level OOM** — the JVM itself runs out of a specific area (heap, metaspace, direct memory, etc.) and throws `OutOfMemoryError: <reason>`.
+* **OS/container-level OOM (OOM killer)** — the Linux kernel (or cgroup OOM controller) kills the process when the container or host runs out of memory.
+
+Both are important to understand and to diagnose.
+
+---
+
+## 2) Common `OutOfMemoryError` variants and causes
+
+* **`java.lang.OutOfMemoryError: Java heap space`**
+
+  * JVM heap exhausted (too many objects, leak, or Xmx too small).
+* **`java.lang.OutOfMemoryError: GC overhead limit exceeded`**
+
+  * JVM spending too much time GC and reclaiming very little—usually heap too small or pathological allocation patterns.
+* **`java.lang.OutOfMemoryError: Metaspace`** (Java 8+) / **PermGen** (pre-Java 8)
+
+  * Too many classes loaded or excessive use of dynamic proxy/code generation without unloading.
+* **`java.lang.OutOfMemoryError: Direct buffer memory`**
+
+  * Native-direct byte buffers (NIO) exceeded configured direct memory (`-XX:MaxDirectMemorySize`) or implicitly limited by default.
+* **`java.lang.OutOfMemoryError: unable to create new native thread`**
+
+  * OS-level limit on threads (ulimit) or system memory exhausted for native stacks.
+* **Container killed by OOM killer** (no `OutOfMemoryError` seen, process just dies)
+
+  * Host or container cgroup memory exhausted → kernel kills process (container logs might show `killed` or `OOM`).
+
+---
+
+## 3) Why containers make OOM trickier
+
+* Docker uses Linux cgroups to limit memory. If a container exceeds its memory limit the kernel OOM killer will kill processes in that cgroup.
+* Older JVMs did not detect cgroup limits; they assumed host memory. Modern JVMs (Java 10+, Java 8u191+) include container awareness, but you must still configure JVM options properly.
+* If you don't set JVM max heap (-Xmx), JVM may set heap based on the host memory, which can exceed the container limit → container OOM.
+
+---
+
+## 4) Best practices when running JVM in Docker
+
+### Always set memory limits at both Docker and JVM
+
+* Docker run example:
+
+  ```bash
+  docker run --memory=512m --memory-swap=512m myapp:1.0
+  ```
+
+  This limits memory to 512MB (no swap).
+
+* JVM options:
+
+  ```text
+  -Xms256m -Xmx384m
+  -XX:+UseG1GC
+  -XX:+HeapDumpOnOutOfMemoryError
+  -XX:HeapDumpPath=/tmp/heapdump.hprof
+  -XX:+ExitOnOutOfMemoryError      # Java 8u92+ option (careful)
+  ```
+
+  Make `-Xmx` less than the container memory limit to avoid container OOM.
+
+### Use modern container-aware JVM flags
+
+* Java 8 (8u191+) and newer understand container limits by default in recent builds. If needed:
+
+  ```text
+  -XX:+UseContainerSupport
+  -XX:MaxRAMPercentage=75.0
+  -XX:InitialRAMPercentage=25.0
+  ```
+
+  Or explicit:
+
+  ```text
+  -Xmx384m
+  ```
+
+  `MaxRAMPercentage` is handy when you want the JVM to size itself relative to container memory.
+
+### Choose a GC suitable for containerized workloads
+
+* **G1GC** is a sensible default for modern apps:
+
+  ```text
+  -XX:+UseG1GC
+  -XX:MaxGCPauseMillis=200
+  ```
+* On JDKs that support newer GCs (ZGC, Shenandoah), evaluate them for very large heaps and low pause requirements.
+
+### Limit direct memory if using NIO / Netty
+
+* Set `-XX:MaxDirectMemorySize=128m` (or suitable value) if your app uses direct buffers.
+
+### Tune thread stacks / ulimits
+
+* Many threads + default stack size = large native memory. Reduce thread count or set smaller thread stack:
+
+  ```text
+  -Xss512k
+  ```
+
+  Or increase container memory and thread ulimit.
+
+---
+
+## 5) Diagnostics and what to collect when OOM happens
+
+### JVM-side tools & flags
+
+* Enable heap dump on OOM:
+
+  ```text
+  -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heapdump.hprof
+  ```
+* GC logs (Java 8 and Java 9+ options differ):
+
+  ```text
+  # Java 8
+  -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/tmp/gc.log
+
+  # Java 9+
+  -Xlog:gc*:file=/tmp/gc.log:time,uptimemillis
+  ```
+* Enable native memory tracking (for native leaks):
+
+  ```text
+  -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions
+  jcmd <pid> VM.native_memory summary
+  ```
+
+### Commands to run when app is alive or just died
+
+* `jmap -heap <pid>` — heap summary.
+* `jmap -dump:live,format=b,file=heap.hprof <pid>` — dump heap.
+* `jstack <pid>` — thread dump to see thread count and stack traces.
+* `jcmd <pid> GC.heap_info / GC.class_histogram` — quick insights.
+* `jcmd <pid> VM.native_memory` — for native memory usage.
+
+If the container process was killed by kernel OOM, inspect host `dmesg` logs:
+
+```bash
+dmesg | grep -i 'killed process'
+```
+
+Check container logs for events like `OOMKilled`.
+
+---
+
+## 6) Practical examples and rules of thumb
+
+### Example Docker run with tuned JVM
+
+```bash
+docker run --rm \
+  --memory=1g --memory-swap=1g \
+  -e JAVA_OPTS="-Xms512m -Xmx768m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heap.hprof" \
+  my-java-app:latest
+```
+
+* Container limit = 1GB. `-Xmx=768m` leaves headroom for metaspace, native memory and threads.
+
+### If you want JVM to auto-size to container memory:
+
+```bash
+# Java 11 example using percentage
+JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:InitialRAMPercentage=40.0 -XX:+UseG1GC"
+```
+
+### On startup include health checks and memory monitoring
+
+* Use readiness/liveness probes (Kubernetes) to avoid thrashing.
+* Use metrics (Prometheus + Micrometer) to monitor heap usage and GC.
+
+---
+
+## 7) Example checklist to fix OOM in Docker
+
+1. Reproduce locally with limits: `docker run --memory=...`.
+2. Configure JVM `-Xmx` < container memory.
+3. Enable `-XX:+HeapDumpOnOutOfMemoryError` and analyze heap dump.
+4. Inspect GC logs and thread dumps.
+5. Check for memory leaks (static caches, long-lived collections).
+6. Reduce native allocations (Netty direct buffers), tune `MaxDirectMemorySize`.
+7. Reduce thread count or stack size (`-Xss`).
+8. Consider container orchestration limits: configure `oom_kill_disable` not recommended; better to size properly.
+9. Use modern JDK and GC (G1 or ZGC) appropriate to heap size.
+10. Add alerting for memory usage and GC pauses.
+
+---
+
+# Circuit Breaker in Spring Boot — deep + practical
+
+Circuit breaker is a resilience pattern: when a downstream dependency (HTTP service, DB, etc.) starts failing or becomes slow, the circuit breaker **opens** to stop forwarding calls, giving the dependency time to recover and protecting system resources.
+
+## Circuit breaker states
+
+* **CLOSED** — normal operation. Requests pass through; failures are recorded.
+* **OPEN** — failures exceeded threshold; calls fail-fast (or fallback) without calling remote service.
+* **HALF_OPEN** — after wait period, a few trial requests are allowed; success → CLOSED, failure → OPEN again.
+
+---
+
+## Why use a circuit breaker?
+
+* Prevent thread exhaustion / resource starvation from slow or failing dependencies.
+* Fail fast and return fallback responses.
+* Avoid cascading failures across microservices.
+
+---
+
+## Recommended library: **Resilience4j**
+
+* Lightweight, modular, supports functional, reactive, and annotation-based usage.
+* Modern alternative to Netflix Hystrix (now in maintenance).
+
+### 1) Maven dependencies
+
+```xml
+<!-- for Spring Boot + Resilience4j -->
+<dependency>
+  <groupId>io.github.resilience4j</groupId>
+  <artifactId>resilience4j-spring-boot2</artifactId>
+  <version>1.7.1</version> <!-- use appropriate/resilient version for your Spring Boot -->
+</dependency>
+
+<!-- optionally, if using annotations -->
+<dependency>
+  <groupId>io.github.resilience4j</groupId>
+  <artifactId>resilience4j-spring-boot2-autoconfigure</artifactId>
+  <version>1.7.1</version>
+</dependency>
+
+<!-- for metrics (Micrometer) -->
+<dependency>
+  <groupId>io.github.resilience4j</groupId>
+  <artifactId>resilience4j-micrometer</artifactId>
+  <version>1.7.1</version>
+</dependency>
+```
+
+(Adjust versions to your project; in Spring Boot 2.x, Resilience4j 1.x is typical.)
+
+---
+
+### 2) Enable Resilience4j in Spring Boot
+
+If you have the dependency and `spring-boot-starter` it auto-configures. For annotation support ensure `@EnableCircuitBreaker` is **not needed** for Resilience4j annotations — instead use the annotation `@CircuitBreaker` directly (Resilience4j Spring Boot starter provides it).
+
+---
+
+### 3) Simple example (annotation + fallback)
+
+#### Controller -> Service -> external call
+
+**`pom.xml`** includes Resilience4j and Spring Web (RestTemplate or WebClient).
+
+**Service class with circuit breaker:**
+
+```java
+@Service
+public class PaymentService {
+
+    private final RestTemplate restTemplate;
+
+    public PaymentService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
+
+    @CircuitBreaker(name = "paymentService", fallbackMethod = "paymentFallback")
+    public String callPaymentService(String orderId) {
+        // assume external service endpoint; could throw RestClientException, Timeout, etc.
+        String url = "http://external-payment/api/pay/" + orderId;
+        return restTemplate.getForObject(url, String.class);
+    }
+
+    // fallback signature: same return type + optional Throwable or specific exception param
+    public String paymentFallback(String orderId, Throwable t) {
+        // log t
+        return "Payment service is down. Please try again later for order " + orderId;
+    }
+}
+```
+
+**Controller:**
+
+```java
+@RestController
+@RequestMapping("/orders")
+public class OrderController {
+    private final PaymentService paymentService;
+    public OrderController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @GetMapping("/{orderId}/pay")
+    public ResponseEntity<String> pay(@PathVariable String orderId) {
+        String response = paymentService.callPaymentService(orderId);
+        return ResponseEntity.ok(response);
+    }
+}
+```
+
+**Bean configuration for RestTemplate:**
+
+```java
+@Configuration
+public class RestConfig {
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+}
+```
+
+---
+
+### 4) Configure `application.yml` for circuit breaker behavior
+
+```yaml
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: TIME_BASED   # or COUNT_BASED
+        slidingWindowSize: 60          # seconds (if TIME_BASED) or number of calls
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 30s
+        failureRateThreshold: 50       # percentage
+        automaticTransitionFromOpenToHalfOpenEnabled: false
+    instances:
+      paymentService:
+        baseConfig: default
+```
+
+Key values:
+
+* `slidingWindowType`: `TIME_BASED` or `COUNT_BASED`.
+* `slidingWindowSize`: window for calculating error rate.
+* `minimumNumberOfCalls`: minimum calls before decisions are made.
+* `failureRateThreshold` (%): threshold to open the circuit.
+* `waitDurationInOpenState`: how long to stay OPEN before HALF_OPEN.
+* `permittedNumberOfCallsInHalfOpenState`: trial calls in HALF_OPEN.
+
+---
+
+### 5) Programmatic usage (if you want more control)
+
+```java
+CircuitBreakerRegistry registry = CircuitBreakerRegistry.ofDefaults();
+CircuitBreaker cb = registry.circuitBreaker("paymentService");
+
+Supplier<String> decoratedSupplier = CircuitBreaker.decorateSupplier(cb, () -> restTemplate.getForObject(url, String.class));
+Try<String> result = Try.ofSupplier(decoratedSupplier)
+    .recover(throwable -> "fallback response");
+```
+
+Or using `Decorator` pattern with `TimeLimiter`, `Retry`:
+
+```java
+TimeLimiter timeLimiter = TimeLimiter.of(Duration.ofSeconds(2));
+Retry retry = Retry.ofDefaults("paymentServiceRetry");
+Supplier<CompletionStage<String>> supplier = () -> CompletableFuture.supplyAsync(() -> restTemplate.getForObject(url, String.class));
+Supplier<CompletionStage<String>> decorated = TimeLimiter.decorateFutureSupplier(timeLimiter,
+      CircuitBreaker.decorateCompletionStage(cb, () -> retry.executeCompletionStage(...)));
+```
+
+(Resilience4j is composable: you can combine CircuitBreaker + Retry + TimeLimiter.)
+
+---
+
+### 6) Monitoring & metrics
+
+* Use **Micrometer** + Prometheus to collect Resilience4j metrics (counters for calls, failures, state transitions).
+* Resilience4j exposes events you can subscribe to:
+
+```java
+cb.getEventPublisher()
+  .onStateTransition(event -> log.info("State transition: {}", event))
+  .onCallNotPermitted(event -> log.warn("Call not permitted"));
+```
+
+---
+
+### 7) Practical pitfalls and tips
+
+* **Fallbacks should be quick** and not call the same failing dependency.
+* **Avoid heavy or blocking logic in fallback**; keep it lightweight.
+* **Tune sliding window and thresholds** to match your traffic pattern: too-sensitive breakers can result in unnecessary opens; too-lenient breakers may not protect the system.
+* **Minimum number of calls** avoids opening the circuit on small sample noise.
+* **Test under load**: simulate failures and latency to ensure desired behavior.
+* **Log and alert** on state transitions; track open durations.
+* **Combine with timeouts**: circuit breaker without a per-call timeout still allows long-hanging calls and resource consumption. Use `TimeLimiter` or HTTP client timeouts.
+
+---
+
+## 8) Example: Combined resilient call (annotation + time limiter + retry)
+
+```java
+// enable @TimeLimiter and @Retry through annotations if using Resilience4j Spring Boot starter
+@CircuitBreaker(name = "paymentService", fallbackMethod = "paymentFallback")
+@Retry(name = "paymentRetry", fallbackMethod = "paymentFallback")
+@TimeLimiter(name = "paymentTimeLimiter")
+public CompletableFuture<String> callPaymentServiceAsync(String orderId) {
+    return CompletableFuture.supplyAsync(() ->
+       restTemplate.getForObject("http://external-payment/api/pay/" + orderId, String.class)
+    );
+}
+```
+
+This uses an async method with time limits and retries; fallback handles failures.
+
+---
+
+## 9) How circuit-breaker actually works (internals)
+
+* Calls are recorded as **success/failure** (and sometimes slow calls counted as failure based on config).
+* Using sliding window (time or count), the breaker calculates a **failure rate**.
+* If `failureRate >= threshold` and `minimumNumberOfCalls` reached → **OPEN**.
+* `waitDurationInOpenState` elapses → **HALF_OPEN**, allow limited calls (`permittedNumberOfCallsInHalfOpenState`).
+* If a trial call succeeds → breaker may transition to CLOSED (and reset counters). If fails → back to OPEN and wait again.
+
+---
+
+## 10) Quick checklist to implement circuit breakers safely
+
+* Add Resilience4j dependencies.
+* Add circuit breaker on service methods that call remote services.
+* Add timeouts and retries appropriately (timeouts first).
+* Provide lightweight fallbacks.
+* Configure thresholds based on real traffic.
+* Monitor state changes and metrics.
+* Test with chaos/latency injection.
+
+---
+
+If you want, I can:
+
+* generate a ready-to-run **Spring Boot sample project** (pom + minimal classes + `application.yml`) showing circuit breaker + metrics, or
+* provide a **step-by-step troubleshooting checklist** for a JVM OOM that just killed your container (logs/commands to run) tailored to your environment.
+
+Which would help you most right now?

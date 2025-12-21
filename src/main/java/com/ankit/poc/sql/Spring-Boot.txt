@@ -1,0 +1,148 @@
+Sure! Let’s walk through **Spring Boot containers** — what they are, what kinds exist, and how they fit into a modern Spring Boot application, especially in the context of **servlet containers, dependency injection containers, and Docker containers**.
+
+---
+
+# ✅ What Are Spring Boot Containers?
+
+The term **"container" in Spring Boot** can refer to **different things**, depending on the context:
+
+---
+
+## 1. 🧠 **Spring IoC Container (Dependency Injection Container)**
+
+### 🔹 What it is:
+
+* The **core** of the Spring Framework.
+* Manages the lifecycle, configuration, and dependencies of all Spring-managed beans.
+* Also called **ApplicationContext**.
+
+### 📦 Example:
+
+```java
+@SpringBootApplication
+public class MyApp {
+    public static void main(String[] args) {
+        ApplicationContext context = SpringApplication.run(MyApp.class, args);
+
+        MyService service = context.getBean(MyService.class);
+        service.doSomething();
+    }
+}
+```
+
+### ✅ Responsibilities:
+
+* Injects dependencies via `@Autowired`, `@Component`, `@Service`, etc.
+* Manages bean scopes (`singleton`, `prototype`, etc.)
+* Handles configuration (`@Configuration`, `@Value`, `@Bean`)
+
+### Container Types:
+
+* `ApplicationContext` (most common)
+
+  * `AnnotationConfigApplicationContext` for Java config
+  * `ClassPathXmlApplicationContext` for XML config (legacy)
+
+---
+
+## 2. 🌐 **Embedded Servlet Containers (Web Containers)**
+
+### 🔹 What it is:
+
+* Spring Boot comes with **embedded servlet containers** like:
+
+  * **Tomcat** (default)
+  * Jetty
+  * Undertow
+
+### 📦 Purpose:
+
+* No need to deploy `.war` files to external Tomcat servers.
+* You can run the app directly using:
+
+  ```bash
+  java -jar myapp.jar
+  ```
+
+### ✅ Benefits:
+
+* Simplified deployment
+* Independent from external servers
+* Fast startup, consistent behavior across environments
+
+### 🔧 How to change:
+
+```xml
+<!-- Exclude Tomcat and use Jetty -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-jetty</artifactId>
+</dependency>
+```
+
+---
+
+## 3. 🐳 **Docker Containers for Spring Boot**
+
+### 🔹 What it is:
+
+* Containerizing the **whole Spring Boot application** using **Docker**.
+* Useful for deployment, CI/CD, scaling, and isolation.
+
+### 🛠️ Typical Dockerfile:
+
+```dockerfile
+FROM openjdk:17-jdk-alpine
+VOLUME /tmp
+ARG JAR_FILE=target/myapp.jar
+COPY ${JAR_FILE} app.jar
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+```
+
+Then build & run:
+
+```bash
+docker build -t my-spring-app .
+docker run -p 8080:8080 my-spring-app
+```
+
+### ✅ Benefits:
+
+* Run anywhere (Linux, cloud, Kubernetes)
+* Encapsulates the app with dependencies
+* Scalable & CI/CD-friendly
+
+---
+
+## Summary Table
+
+| Container Type            | Role/Scope                                | Example / Tool                     |
+| ------------------------- | ----------------------------------------- | ---------------------------------- |
+| **IoC Container**         | Bean lifecycle & dependency management    | `ApplicationContext`, `@Bean`      |
+| **Web Servlet Container** | Handles HTTP requests & servlet lifecycle | Embedded Tomcat / Jetty / Undertow |
+| **Docker Container**      | OS-level isolation for full app           | Docker, Kubernetes                 |
+
+---
+
+## 🤔 Which "Container" Is Used When?
+
+| Scenario                               | Container Involved                      |
+| -------------------------------------- | --------------------------------------- |
+| You inject services using `@Autowired` | **IoC Container (ApplicationContext)**  |
+| You hit `localhost:8080/api/users`     | **Embedded Servlet Container (Tomcat)** |
+| You deploy your app in Docker          | **Docker Container**                    |
+
+---
+
+Would you like a hands-on example using **Spring Boot + Docker + Kubernetes** or maybe a diagram showing how all three containers interact?

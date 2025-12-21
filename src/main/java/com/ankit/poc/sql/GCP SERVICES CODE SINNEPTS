@@ -1,0 +1,459 @@
+Perfect — let’s build you a **complete GitHub-ready Java Spring Boot backend** designed for **GCP Cloud Run + Cloud SQL + Secret Manager + Pub/Sub**, including CI/CD via **Cloud Build**.
+
+Below is the **full project layout and content** — you can copy/paste directly into a new GitHub repo (e.g., `java-cloudrun-demo`) and run `gcloud builds submit` to deploy.
+
+---
+
+## 🗂️ Repository Structure
+
+```
+java-cloudrun-demo/
+ ├─ src/
+ │   ├─ main/
+ │   │   ├─ java/com/example/demo/
+ │   │   │   ├─ DemoApplication.java
+ │   │   │   ├─ controller/HelloController.java
+ │   │   │   ├─ service/MessageService.java
+ │   │   │   ├─ config/CloudSqlConfig.java
+ │   │   │   ├─ util/SecretLoader.java
+ │   │   └─ resources/
+ │   │       └─ application.yml
+ │   └─ test/java/com/example/demo/
+ │       ├─ HelloControllerTest.java
+ │       └─ MessageServiceTest.java
+ ├─ pom.xml
+ ├─ Dockerfile
+ ├─ cloudbuild.yaml
+ ├─ .gitignore
+ └─ README.md
+```
+
+---
+
+## ⚙️ pom.xml
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.example</groupId>
+    <artifactId>demo</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>java-cloudrun-demo</name>
+    <description>Spring Boot API for GCP Cloud Run + Cloud SQL + Pub/Sub + Secret Manager</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <spring.boot.version>3.3.5</spring.boot.version>
+    </properties>
+
+    <dependencies>
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- GCP SDKs -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-pubsub</artifactId>
+            <version>1.127.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-secretmanager</artifactId>
+            <version>2.16.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud.sql</groupId>
+            <artifactId>mysql-socket-factory-connector-j-8</artifactId>
+            <version>1.9.0</version>
+        </dependency>
+
+        <!-- Database -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.1.0</version>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+```
+
+---
+
+## 🧩 Application Code
+
+### `DemoApplication.java`
+
+```java
+package com.example.demo;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class DemoApplication {
+  public static void main(String[] args) {
+    SpringApplication.run(DemoApplication.class, args);
+  }
+}
+```
+
+### `controller/HelloController.java`
+
+```java
+package com.example.demo.controller;
+
+import com.example.demo.service.MessageService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api")
+public class HelloController {
+
+    private final MessageService messageService;
+
+    public HelloController(MessageService messageService) {
+        this.messageService = messageService;
+    }
+
+    @GetMapping("/hello")
+    public String hello(@RequestParam(defaultValue = "world") String name) {
+        messageService.publishGreeting(name);
+        return "Hello, " + name + "!";
+    }
+}
+```
+
+---
+
+### `service/MessageService.java`
+
+```java
+package com.example.demo.service;
+
+import com.google.cloud.pubsub.v1.Publisher;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.TopicName;
+import com.google.protobuf.ByteString;
+import org.springframework.stereotype.Service;
+
+@Service
+public class MessageService {
+    private final Publisher publisher;
+
+    public MessageService() throws Exception {
+        String projectId = System.getenv("GCP_PROJECT");
+        TopicName topicName = TopicName.of(projectId, "greetings-topic");
+        this.publisher = Publisher.newBuilder(topicName).build();
+    }
+
+    public void publishGreeting(String name) {
+        try {
+            ByteString data = ByteString.copyFromUtf8("Hello " + name);
+            PubsubMessage msg = PubsubMessage.newBuilder().setData(data).build();
+            publisher.publish(msg);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+---
+
+### `config/CloudSqlConfig.java`
+
+```java
+package com.example.demo.config;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.springframework.context.annotation.*;
+import javax.sql.DataSource;
+
+@Configuration
+public class CloudSqlConfig {
+
+  @Bean
+  public DataSource dataSource() {
+    String instanceConnectionName = System.getenv("CLOUD_SQL_CONNECTION_NAME");
+    String dbName = System.getenv("DB_NAME");
+    String dbUser = System.getenv("DB_USER");
+    String dbPass = System.getenv("DB_PASS");
+
+    HikariConfig config = new HikariConfig();
+    String jdbcUrl = String.format(
+        "jdbc:mysql:///%s?cloudSqlInstance=%s&socketFactory=com.google.cloud.sql.mysql.SocketFactory&useSSL=false",
+        dbName, instanceConnectionName);
+
+    config.setJdbcUrl(jdbcUrl);
+    config.setUsername(dbUser);
+    config.setPassword(dbPass);
+    config.setMaximumPoolSize(10);
+
+    return new HikariDataSource(config);
+  }
+}
+```
+
+---
+
+### `util/SecretLoader.java`
+
+```java
+package com.example.demo.util;
+
+import com.google.cloud.secretmanager.v1.*;
+import com.google.protobuf.ByteString;
+
+public class SecretLoader {
+    public static String accessSecret(String projectId, String secretId, String version) throws Exception {
+        try (SecretManagerServiceClient client = SecretManagerServiceClient.create()) {
+            SecretVersionName name = SecretVersionName.of(projectId, secretId, version);
+            AccessSecretVersionResponse response = client.accessSecretVersion(name);
+            ByteString payload = response.getPayload().getData();
+            return payload.toStringUtf8();
+        }
+    }
+}
+```
+
+---
+
+## 🧪 Tests
+
+### `HelloControllerTest.java`
+
+```java
+package com.example.demo;
+
+import com.example.demo.controller.HelloController;
+import com.example.demo.service.MessageService;
+import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+
+public class HelloControllerTest {
+
+    @Test
+    void testHelloEndpoint() {
+        MessageService mockService = mock(MessageService.class);
+        HelloController controller = new HelloController(mockService);
+
+        String response = controller.hello("Ankit");
+        assertThat(response).isEqualTo("Hello, Ankit!");
+    }
+}
+```
+
+### `MessageServiceTest.java`
+
+```java
+package com.example.demo;
+
+import com.example.demo.service.MessageService;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+
+public class MessageServiceTest {
+    @Test
+    void testPublishGreetingDoesNotThrow() {
+        assertThatCode(() -> new MessageService().publishGreeting("TestUser"))
+                .doesNotThrowAnyException();
+    }
+}
+```
+
+---
+
+## 🐳 Dockerfile
+
+```dockerfile
+FROM maven:3.9.1-eclipse-temurin-17 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=build /app/target/demo-1.0.0.jar app.jar
+EXPOSE 8080
+ENV PORT=8080
+ENTRYPOINT ["java","-Xms512m","-Xmx512m","-jar","/app/app.jar"]
+```
+
+---
+
+## ☁️ cloudbuild.yaml
+
+```yaml
+steps:
+- name: 'gcr.io/cloud-builders/mvn'
+  args: ['clean', 'package', '-DskipTests']
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/java-cloudrun-demo/demo:$SHORT_SHA', '.']
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/java-cloudrun-demo/demo:$SHORT_SHA']
+
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - run
+    - deploy
+    - demo-service
+    - --image=us-central1-docker.pkg.dev/$PROJECT_ID/java-cloudrun-demo/demo:$SHORT_SHA
+    - --region=us-central1
+    - --platform=managed
+    - --allow-unauthenticated
+    - --set-env-vars=CLOUD_SQL_CONNECTION_NAME=${_CLOUD_SQL_CONN},DB_NAME=${_DB_NAME},DB_USER=${_DB_USER}
+    - --concurrency=80
+    - --memory=512Mi
+    - --max-instances=30
+timeout: "1600s"
+
+images:
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/java-cloudrun-demo/demo:$SHORT_SHA'
+```
+
+---
+
+## 🧾 .gitignore
+
+```
+target/
+*.iml
+.idea/
+.DS_Store
+*.log
+.env
+```
+
+---
+
+## 📘 README.md
+
+````markdown
+# Java Cloud Run Demo
+
+A production-ready Java 17 Spring Boot backend that runs serverlessly on **Google Cloud Run**, connects securely to **Cloud SQL**, uses **Secret Manager** for configuration, and publishes messages to **Pub/Sub**.
+
+---
+
+## 🧩 Features
+- REST API built with Spring Boot 3
+- Cloud SQL connector (secure IAM auth)
+- Pub/Sub messaging
+- Secret Manager integration
+- Cloud Build CI/CD
+- Containerized deployment on Cloud Run
+
+---
+
+## 🚀 Deploy to Cloud Run
+
+### 1️⃣ Enable APIs
+```bash
+gcloud services enable run.googleapis.com sqladmin.googleapis.com secretmanager.googleapis.com pubsub.googleapis.com cloudbuild.googleapis.com
+````
+
+### 2️⃣ Build & Deploy
+
+```bash
+gcloud builds submit --config cloudbuild.yaml \
+  --substitutions=_CLOUD_SQL_CONN="PROJECT:REGION:INSTANCE",_DB_NAME="demo",_DB_USER="demo_user"
+```
+
+### 3️⃣ Verify
+
+```bash
+curl https://<CLOUD_RUN_URL>/api/hello?name=World
+```
+
+---
+
+## 🧠 Local Run
+
+```bash
+mvn spring-boot:run
+```
+
+## 🧰 Configuration
+
+Environment variables required:
+
+* `CLOUD_SQL_CONNECTION_NAME`
+* `DB_NAME`
+* `DB_USER`
+* `DB_PASS`
+* `GCP_PROJECT`
+
+---
+
+## 🧪 Tests
+
+```bash
+mvn test
+```
+
+---
+
+## 📦 Folder overview
+
+| Path              | Purpose                       |
+| ----------------- | ----------------------------- |
+| `src/main/java`   | Application source            |
+| `src/test/java`   | Unit tests                    |
+| `Dockerfile`      | Build container for Cloud Run |
+| `cloudbuild.yaml` | CI/CD pipeline                |
+| `README.md`       | Documentation                 |
+
+---
+
+## 🛠️ Next Steps
+
+* Add Cloud SQL schema migrations (Flyway/Liquibase)
+* Add OpenTelemetry metrics + traces
+* Add Cloud Monitoring alerts
+
+```
+
+---
+
+Would you like me to:
+1. 💻 Generate this repo as a **.zip file** for download, or  
+2. 🧩 Push-ready **GitHub import commands** (with README badges and actions)?  
+
+Once you confirm, I’ll prepare the repo in your preferred format.
+```

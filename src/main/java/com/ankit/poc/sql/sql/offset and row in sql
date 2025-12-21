@@ -1,0 +1,282 @@
+To find the **2 highest salaries** from an `employee` table in SQL, you can use a few approaches depending on your SQL dialect (MySQL, Oracle, PostgreSQL, SQL Server).
+
+---
+
+## ✅ 1. Using `DISTINCT` + `LIMIT` (MySQL, PostgreSQL)
+
+```sql
+SELECT DISTINCT salary
+FROM employee
+ORDER BY salary DESC
+LIMIT 2;
+```
+
+👉 This will return the **top 2 unique salaries**.
+
+---
+
+## ✅ 2. Using `TOP` (SQL Server, Sybase)
+
+```sql
+SELECT DISTINCT TOP 2 salary
+FROM employee
+ORDER BY salary DESC;
+```
+
+---
+
+## ✅ 3. Using Subquery (works in most SQLs)
+
+```sql
+SELECT MAX(salary) AS highest_salary
+FROM employee
+WHERE salary < (SELECT MAX(salary) FROM employee);
+```
+
+👉 This query gives the **second highest salary**.
+To get both **first and second**, you can use:
+
+```sql
+SELECT salary 
+FROM employee e1
+WHERE 2 > (
+   SELECT COUNT(DISTINCT salary) 
+   FROM employee e2 
+   WHERE e2.salary > e1.salary
+)
+ORDER BY salary DESC;
+```
+
+👉 This returns **top 2 salaries**.
+
+---
+
+## ✅ 4. Using Window Functions (PostgreSQL, SQL Server, Oracle, MySQL 8+)
+
+```sql
+SELECT DISTINCT salary
+FROM (
+    SELECT salary, DENSE_RANK() OVER (ORDER BY salary DESC) as rnk
+    FROM employee
+) t
+WHERE rnk <= 2;
+```
+
+👉 This is the **cleanest modern way** using `DENSE_RANK()`.
+
+---
+
+🔥 **Recommendation:**
+
+* If you just want the top 2 salaries → use `LIMIT` or `TOP`.
+* If you want **nth highest salary (generalized)** → use `DENSE_RANK()`.
+
+---
+
+Do you also want me to show how to **get the employees’ names along with their 2 highest salaries** (not just the salary values)?
+
+Great question 👍. Let’s break down **`OFFSET`** and **`ROW` (often used with `FETCH NEXT ROWS`)** in SQL. These are mainly used for **pagination** and **row limiting**.
+
+---
+
+## 🔹 1. OFFSET
+
+* **Purpose:** Skips a given number of rows before returning the result.
+* **Commonly used with:** `ORDER BY` and `FETCH`.
+* **Syntax:**
+
+  ```sql
+  SELECT *
+  FROM employee
+  ORDER BY salary DESC
+  OFFSET 5 ROWS;
+  ```
+
+  👉 Skips the first 5 rows and returns the rest.
+
+---
+
+## 🔹 2. FETCH NEXT (ROW/ROWS)
+
+* **Purpose:** Limits the number of rows returned **after applying OFFSET**.
+* Works like `LIMIT` in MySQL/PostgreSQL.
+* **Syntax:**
+
+  ```sql
+  SELECT *
+  FROM employee
+  ORDER BY salary DESC
+  OFFSET 5 ROWS
+  FETCH NEXT 10 ROWS ONLY;
+  ```
+
+  👉 Skips 5 rows, then fetches the next 10 rows.
+
+---
+
+## 🔹 Example: Pagination
+
+Imagine you want to show employees page by page.
+
+* **Page 1 (rows 1–10):**
+
+  ```sql
+  SELECT *
+  FROM employee
+  ORDER BY id
+  OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY;
+  ```
+
+* **Page 2 (rows 11–20):**
+
+  ```sql
+  SELECT *
+  FROM employee
+  ORDER BY id
+  OFFSET 10 ROWS FETCH NEXT 10 ROWS ONLY;
+  ```
+
+* **Page 3 (rows 21–30):**
+
+  ```sql
+  SELECT *
+  FROM employee
+  ORDER BY id
+  OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY;
+  ```
+
+---
+
+## 🔹 Difference in Dialects
+
+* **MySQL/PostgreSQL:** Use `LIMIT` with `OFFSET`
+
+  ```sql
+  SELECT * FROM employee ORDER BY id LIMIT 10 OFFSET 20;
+  ```
+* **SQL Server / Oracle 12c+:** Use `OFFSET … FETCH NEXT … ROWS`.
+
+---
+
+## ✅ Summary
+
+* **`OFFSET n`** → Skip `n` rows.
+* **`FETCH NEXT m ROWS ONLY`** → Return only `m` rows after offset.
+* Together → Used for **pagination** or **batch processing**.
+
+---
+
+👉 Do you want me to also explain how `ROWNUM` (in Oracle) is different from `OFFSET … FETCH NEXT`? That’s another common SQL interview trick.
+Good one 👍—this is a **classic SQL interview question**.
+There are **multiple ways** to fetch the **2nd highest salary** from an `employee` table depending on which SQL database you’re using.
+
+---
+
+## 🔹 1. Using `LIMIT` + `OFFSET` (MySQL / PostgreSQL)
+
+```sql
+SELECT DISTINCT salary
+FROM employee
+ORDER BY salary DESC
+LIMIT 1 OFFSET 1;
+```
+
+👉 `OFFSET 1` skips the highest salary, and `LIMIT 1` fetches the next one → 2nd highest salary.
+
+---
+
+## 🔹 2. Using `TOP` with `NOT IN` (SQL Server / Oracle)
+
+```sql
+SELECT MAX(salary) AS SecondHighestSalary
+FROM employee
+WHERE salary < (SELECT MAX(salary) FROM employee);
+```
+
+👉 Takes the max salary **less than the overall max**.
+
+---
+
+## 🔹 3. Using `DENSE_RANK()` (Best approach in modern SQL)
+
+```sql
+SELECT salary
+FROM (
+    SELECT salary,
+           DENSE_RANK() OVER (ORDER BY salary DESC) AS rnk
+    FROM employee
+) ranked
+WHERE rnk = 2;
+```
+
+👉 `DENSE_RANK()` ensures duplicate top salaries are handled properly.
+
+---
+
+## 🔹 4. Using `ROW_NUMBER()` (if you want the exact row)
+
+```sql
+SELECT salary
+FROM (
+    SELECT salary,
+           ROW_NUMBER() OVER (ORDER BY salary DESC) AS row_num
+    FROM employee
+) ranked
+WHERE row_num = 2;
+```
+
+👉 If multiple employees have the same highest salary, this will pick exactly one **2nd row**, not all.
+
+---
+
+✅ **Recommended:** Use `DENSE_RANK()` if you want *all employees* with the 2nd highest salary,
+and `ROW_NUMBER()` if you just need one record.
+
+---
+
+Would you like me to also show you how to **fetch the Nth highest salary (like 3rd, 4th, etc.)**? This often comes as a follow-up in interviews.
+
+Your query is **almost correct**, but the problem is you are selecting `d.name` without including it in the `GROUP BY` clause. In SQL, **all non-aggregated columns in a `SELECT` list must appear in the `GROUP BY`** (ANSI SQL rule).
+
+---
+
+### ✅ **Corrected Query**
+
+```sql
+SELECT 
+    COUNT(*) AS employee_count,
+    e.dep_id,
+    d.name
+FROM employee e
+INNER JOIN department d 
+    ON e.dep_id = d.id
+GROUP BY e.dep_id, d.name
+ORDER BY employee_count DESC;
+```
+
+---
+
+### 📌 **Why it Works**
+
+* `COUNT(*)` → Aggregation function, doesn’t need to be grouped.
+* `e.dep_id` and `d.name` → Non-aggregated columns, so both must be in `GROUP BY`.
+* `ORDER BY employee_count DESC` → Sorts by count, so highest employee count appears first.
+
+---
+
+### 🧠 **Extra Tip**
+
+If your SQL dialect supports it (like MySQL 8+ or PostgreSQL), you could simplify using `USING` in the join:
+
+```sql
+SELECT 
+    COUNT(*) AS employee_count,
+    dep_id,
+    d.name
+FROM employee e
+JOIN department d USING(dep_id)
+GROUP BY dep_id, d.name
+ORDER BY employee_count DESC;
+```
+
+Would you like me to show an example with a **sample dataset and output** for clarity?

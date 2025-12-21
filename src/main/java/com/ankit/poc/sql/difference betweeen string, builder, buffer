@@ -1,0 +1,97 @@
+The key differences between **`String`**, **`StringBuilder`**, and **`StringBuffer`** in Java lie in **immutability**, **thread safety**, and **performance**.
+
+Let’s break it down clearly:
+
+---
+
+## 🔹 1. `String` (Immutable)
+
+### ✅ Characteristics:
+
+* **Immutable**: Once created, a `String` object cannot be changed.
+* Every time you modify a `String`, **a new object is created**.
+
+### 📌 Example:
+
+```java
+String s = "Hello";
+s = s + " World"; // creates a new object
+```
+
+Here, `"Hello"` and `"Hello World"` are two different objects in memory.
+
+### 🧠 Use When:
+
+* String is not frequently modified.
+* Thread safety is not a concern.
+* Memory usage is not a bottleneck.
+
+---
+
+## 🔹 2. `StringBuilder` (Mutable, Not Thread-Safe)
+
+### ✅ Characteristics:
+
+* **Mutable**: Can modify the object without creating new ones.
+* **Not synchronized**: **Not thread-safe**, but **faster** than `StringBuffer`.
+
+### 📌 Example:
+
+```java
+StringBuilder sb = new StringBuilder("Hello");
+sb.append(" World"); // modifies the same object
+System.out.println(sb); // Hello World
+```
+
+### 🧠 Use When:
+
+* Performance is important.
+* You are working in a **single-threaded environment**.
+* You are doing a lot of string concatenation.
+
+---
+
+## 🔹 3. `StringBuffer` (Mutable, Thread-Safe)
+
+### ✅ Characteristics:
+
+* **Mutable**, like `StringBuilder`.
+* **Synchronized**: Thread-safe for multithreaded operations.
+* Slightly **slower** than `StringBuilder` due to overhead of synchronization.
+
+### 📌 Example:
+
+```java
+StringBuffer sb = new StringBuffer("Hello");
+sb.append(" World"); // thread-safe modification
+System.out.println(sb); // Hello World
+```
+
+### 🧠 Use When:
+
+* You need **thread safety**.
+* You are using strings in **multi-threaded applications**.
+
+---
+
+## 🔍 Comparison Table:
+
+| Feature         | `String`         | `StringBuilder`     | `StringBuffer`       |
+| --------------- | ---------------- | ------------------- | -------------------- |
+| **Mutability**  | Immutable        | Mutable             | Mutable              |
+| **Thread Safe** | Yes (immutable)  | ❌ No                | ✅ Yes (synchronized) |
+| **Performance** | Slowest (copies) | Fastest (no sync)   | Slower than Builder  |
+| **Use Case**    | Constants, keys  | Single-threaded ops | Multi-threaded ops   |
+| **Package**     | `java.lang`      | `java.lang`         | `java.lang`          |
+
+---
+
+## ✅ Summary (When to Use What):
+
+* Use **`String`** when your text does **not change often**.
+* Use **`StringBuilder`** when you are doing **lots of modifications** and you are in a **single-threaded environment**.
+* Use **`StringBuffer`** when you are in a **multi-threaded** environment and need **safety**.
+
+---
+
+Would you like a performance comparison benchmark (loop test) or memory diagram to visualize how these work under the hood?
