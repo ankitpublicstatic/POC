@@ -1,0 +1,155 @@
+Excellent question — in **Spring Boot (Java)**, there are multiple clean ways to access a property from a `.properties` or `.yml` file at **class level**.
+Let’s go through the **most practical approaches**, step by step 👇
+
+---
+
+## 🧩 1️⃣ Using `@Value` Annotation
+
+If you just need a single property (or a few), this is the simplest approach.
+
+**Example:**
+
+```java
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class AppConfig {
+
+    @Value("${app.name}")
+    private String appName;
+
+    @Value("${app.version}")
+    private String appVersion;
+
+    public void printProperties() {
+        System.out.println("App Name: " + appName);
+        System.out.println("App Version: " + appVersion);
+    }
+}
+```
+
+**application.properties**
+
+```properties
+app.name=MySpringApp
+app.version=1.0.0
+```
+
+✅ **When to use:**
+For few independent properties (simple cases).
+
+---
+
+## 🧩 2️⃣ Using `@ConfigurationProperties`
+
+Best for mapping **multiple related properties** to a single class.
+
+**Example:**
+
+```java
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConfigurationProperties(prefix = "app")
+public class AppProperties {
+
+    private String name;
+    private String version;
+    private String description;
+
+    // Getters and Setters
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getVersion() { return version; }
+    public void setVersion(String version) { this.version = version; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+}
+```
+
+**application.properties**
+
+```properties
+app.name=MySpringApp
+app.version=2.0.1
+app.description=Spring Boot property binding example
+```
+
+✅ **When to use:**
+For structured configuration (e.g., multiple fields from same prefix).
+Automatically validated and supports complex types like lists and maps.
+
+---
+
+## 🧩 3️⃣ Using `Environment` Object (Programmatic Access)
+
+If you want to read properties dynamically (not fixed at startup):
+
+**Example:**
+
+```java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
+@Component
+public class EnvReader {
+
+    @Autowired
+    private Environment env;
+
+    public void printProperty() {
+        String dbUrl = env.getProperty("spring.datasource.url");
+        System.out.println("Database URL: " + dbUrl);
+    }
+}
+```
+
+✅ **When to use:**
+When you need dynamic property access (e.g., reading conditional configs).
+
+---
+
+## 🧩 4️⃣ Using `@PropertySource`
+
+If your `.properties` file is **custom** (not application.properties):
+
+```java
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.beans.factory.annotation.Value;
+
+@Configuration
+@PropertySource("classpath:custom.properties")
+public class CustomConfig {
+
+    @Value("${custom.key}")
+    private String customKey;
+
+    public void showValue() {
+        System.out.println("Custom Key: " + customKey);
+    }
+}
+```
+
+✅ **When to use:**
+When properties are located in a separate `.properties` file.
+
+---
+
+## 🔍 Summary
+
+| Approach                   | Use Case                        | Example                                  |
+| -------------------------- | ------------------------------- | ---------------------------------------- |
+| `@Value`                   | Simple, single property         | `@Value("${app.name}")`                  |
+| `@ConfigurationProperties` | Multiple related properties     | `@ConfigurationProperties(prefix="app")` |
+| `Environment`              | Dynamic runtime access          | `env.getProperty("key")`                 |
+| `@PropertySource`          | External/custom properties file | `@PropertySource("classpath:...")`       |
+
+---
+
+Would you like me to show **how to load these properties in a static context (e.g., from a static method or utility class)**? That requires a slightly different setup.
