@@ -1,0 +1,291 @@
+Here is a **full, production-grade, deep-dive explanation** for creating an **AWS EKS Cluster using Terraform**, including VPC, IAM roles, worker nodes, and kubectl configuration.
+
+This is the **exact structure** companies use in real-world production.
+
+---
+
+# 🚀 **EKS Cluster Setup Using Terraform (Deep Dive)**
+
+You will learn to deploy:
+
+### ✔ VPC (public + private subnets)
+
+### ✔ Internet Gateway, NAT Gateway
+
+### ✔ EKS Cluster
+
+### ✔ Node Group (worker nodes)
+
+### ✔ kubectl configuration
+
+### ✔ Outputs to connect cluster
+
+We will use the **official Terraform AWS EKS module**, which simplifies configuration drastically but still provides full enterprise-grade infrastructure.
+
+---
+
+# 📁 Folder Structure
+
+```
+terraform-eks/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── vpc.tf
+└── eks.tf
+```
+
+Let’s build each part step-by-step.
+
+---
+
+# 1️⃣ **Provider + Backend + Default Config** → `main.tf`
+
+```tf
+terraform {
+  required_version = ">= 1.4.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+```
+
+---
+
+# 2️⃣ **Create VPC for EKS** → `vpc.tf`
+
+> EKS must run inside **private subnets** for production.
+
+We use the official AWS VPC module:
+
+```tf
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.0.0"
+
+  name = "eks-vpc"
+
+  cidr = "10.0.0.0/16"
+
+  azs             = ["ap-south-1a", "ap-south-1b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.3.0/24", "10.0.4.0/24"]
+
+  enable_nat_gateway = true
+  single_nat_gateway = true
+
+  tags = {
+    "kubernetes.io/cluster/demo" = "shared"
+  }
+
+  public_subnet_tags = {
+    "kubernetes.io/role/elb" = 1
+  }
+
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = 1
+  }
+}
+```
+
+---
+
+# 3️⃣ **Create EKS Cluster** → `eks.tf`
+
+Use official EKS module:
+
+```tf
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "20.0.0"
+
+  cluster_name    = "demo-eks"
+  cluster_version = "1.30"
+
+  cluster_endpoint_public_access = true
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnets
+
+  eks_managed_node_groups = {
+    worker_nodes = {
+      instance_types = ["t3.medium"]
+      min_size       = 2
+      max_size       = 4
+      desired_size   = 2
+    }
+  }
+
+  tags = {
+    Environment = "Dev"
+    Terraform   = "true"
+  }
+}
+```
+
+### What this creates?
+
+* EKS control plane
+* Security groups
+* IAM roles
+* Worker node group in private subnets
+* Node IAM profiles
+* Cluster autoscaler compatibility
+
+---
+
+# 4️⃣ **Variables (Optional)** → `variables.tf`
+
+```tf
+variable "cluster_name" {
+  default = "demo-eks"
+}
+```
+
+---
+
+# 5️⃣ **Outputs** → `outputs.tf`
+
+These help configure kubectl after creation:
+
+```tf
+output "cluster_endpoint" {
+  value = module.eks.cluster_endpoint
+}
+
+output "cluster_name" {
+  value = module.eks.cluster_name
+}
+
+output "cluster_certificate" {
+  value = module.eks.cluster_certificate_authority_data
+}
+```
+
+---
+
+# ▶️ **Run Terraform**
+
+### 1. Initialize provider
+
+```
+terraform init
+```
+
+### 2. Validate syntax
+
+```
+terraform validate
+```
+
+### 3. Show plan
+
+```
+terraform plan
+```
+
+### 4. Apply (creates entire EKS infra)
+
+```
+terraform apply
+```
+
+⏳ Takes **10–15 minutes** because AWS creates:
+
+* VPC
+* NAT, IGW
+* EKS control plane
+* Worker nodes
+
+---
+
+# 🧩 **Configure Kubectl**
+
+After Terraform finishes:
+
+### Download authentication:
+
+```
+aws eks update-kubeconfig \
+  --name demo-eks \
+  --region ap-south-1
+```
+
+### Test access:
+
+```
+kubectl get nodes
+kubectl get pods -A
+```
+
+---
+
+# 🎯 **Deploy a Sample Application**
+
+Example Nginx deployment:
+
+```yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - image: nginx
+          name: nginx
+```
+
+Apply:
+
+```
+kubectl apply -f nginx.yaml
+```
+
+---
+
+# 🎉 **Congratulations!**
+
+You now have a full **production-ready EKS cluster** deployed using Terraform with:
+
+* VPC
+* NAT
+* Private/Public subnets
+* EKS cluster
+* Node groups
+* kubectl connectivity
+
+---
+
+# 🧠 **If You Want to Go Even Deeper**
+
+I can also give you:
+
+### 🏗 Advanced EKS Topics:
+
+* EKS with Fargate
+* EKS with Spot Node Groups
+* EKS + ALB Ingress Controller
+* EKS + Cluster Autoscaler
+* EKS Logging + CloudWatch
+* EKS + GitOps (ArgoCD)
+* EKS CI/CD with GitHub Actions
+* EKS Best Practices Architecture Diagram
+
+Just tell me **which one you want next**.
