@@ -1,0 +1,217 @@
+Perfect — I’ll add a **full Jenkins CI/CD pipeline** to Option C so your setup supports:
+
+✔ GitHub Actions
+✔ AWS ECR CI/CD
+✔ GCP Cloud Build
+✔ **Jenkins Pipeline (Scripted or Declarative)**
+✔ Build + Test + Docker Build + Docker Push + Deploy to Kubernetes/ECS/GKE (optional)
+
+Below is a **production-grade Jenkinsfile**.
+
+---
+
+# 🚀 **Jenkins CI/CD Pipeline (Declarative)**
+
+This is the recommended industry-standard Jenkins pipeline with:
+
+* Maven Build
+* Unit Tests
+* Build Docker Image
+* Push to ECR OR DockerHub
+* Deploy to Kubernetes (optional)
+
+---
+
+# ✅ **Jenkinsfile (complete)**
+
+```groovy
+pipeline {
+    agent any
+
+    environment {
+        // Change according to your setup
+        DOCKER_IMAGE = "test-poc"
+        DOCKER_TAG = "latest"
+        AWS_REGION = "ap-south-1"
+        ECR_REGISTRY = "<your_account_id>.dkr.ecr.ap-south-1.amazonaws.com"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Maven Project') {
+            steps {
+                sh './mvnw clean package -DskipTests'
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh './mvnw test'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Login to AWS ECR') {
+            steps {
+                sh '''
+                    aws ecr get-login-password --region ${AWS_REGION} \
+                    | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                    docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                    docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${ECR_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                '''
+            }
+        }
+
+        stage('Push Docker Image to ECR') {
+            steps {
+                sh '''
+                    docker push ${ECR_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            when {
+                expression { return fileExists('k8s/deployment.yaml') }
+            }
+            steps {
+                sh '''
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                    kubectl apply -f k8s/hpa.yaml || true
+                '''
+            }
+        }
+
+    } // stages
+
+    post {
+        always {
+            echo 'Pipeline finished.'
+        }
+    }
+}
+```
+
+---
+
+# 🧩 **What This Jenkins Pipeline Does**
+
+| Stage         | Description                         |
+| ------------- | ----------------------------------- |
+| Checkout      | Pulls code from GitHub              |
+| Build         | mvn package                         |
+| Test          | Runs unit tests and reports         |
+| AWS ECR Login | Uses `aws-cli`                      |
+| Docker Build  | Builds local Docker image           |
+| Docker Push   | Pushes to AWS ECR                   |
+| K8s Deploy    | Deploys to cluster (if YAML exists) |
+
+---
+
+# ⚙️ **Requirements on Jenkins Server**
+
+### Install Plugins:
+
+✔ Docker Pipeline
+✔ AWS Credentials Plugin
+✔ Kubernetes CLI Plugin (optional)
+
+---
+
+# 🔐 Store Secrets in Jenkins Credentials:
+
+| Credential ID           | Type        | Value              |
+| ----------------------- | ----------- | ------------------ |
+| `aws-access-key-id`     | text        | AWS key            |
+| `aws-secret-access-key` | text        | AWS secret         |
+| `kubeconfig`            | secret file | kubeconfig for k8s |
+| `dockerhub-user`        | username    | DockerHub username |
+| `dockerhub-pass`        | password    | DockerHub password |
+
+---
+
+# 🔥 **Alternative: Jenkins Pipeline for DockerHub**
+
+If you want *DockerHub* instead of ECR:
+
+```groovy
+stage('DockerHub Login') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+            sh 'docker login -u $USER -p $PASS'
+        }
+    }
+}
+```
+
+and push:
+
+```groovy
+sh '''
+docker tag test-poc:latest $USER/test-poc:latest
+docker push $USER/test-poc:latest
+'''
+```
+
+---
+
+# 🌐 **Alternative: Deploy to GCP GKE**
+
+```groovy
+stage('Deploy to GKE') {
+    steps {
+        sh '''
+            gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+            gcloud container clusters get-credentials YOUR_CLUSTER --zone asia-south1 --project YOUR_PROJECT
+            kubectl apply -f k8s/
+        '''
+    }
+}
+```
+
+---
+
+# 🎁 Folder structure including Jenkins CI/CD
+
+```
+/cicd/
+   ├── Dockerfile
+   ├── cloudbuild.yaml
+   ├── jenkins/Jenkinsfile
+   ├── github-actions/deploy.yml
+/k8s/
+   ├── deployment.yaml
+   ├── service.yaml
+   ├── hpa.yaml
+```
+
+---
+
+# 🚀 Next Steps
+
+If you want:
+
+✔ A **full GitHub repo ZIP** with all 4 options
+✔ Jenkinsfile integrated in repo
+✔ Proper README for CI/CD
+
+Just say:
+**“Generate full repo”** and I’ll produce everything neatly organized.

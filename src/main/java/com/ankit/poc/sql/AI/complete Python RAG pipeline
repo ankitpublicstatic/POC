@@ -1,3 +1,5 @@
+https://chatgpt.com/share/6906cf39-7604-8013-b8d9-ac1e9eda28db
+
 Got it — you want a **complete Python RAG pipeline** that:
 ✅ Extracts documents from **multiple sources** (PDFs, HTML, PostgreSQL DB rows, source code).
 ✅ Uses **LangChain** for orchestration.
