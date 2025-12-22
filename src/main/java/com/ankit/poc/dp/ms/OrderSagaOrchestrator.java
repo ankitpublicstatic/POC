@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern.micro_services;
+package com.ankit.poc.dp.ms;
 
 import org.springframework.stereotype.Service;
 

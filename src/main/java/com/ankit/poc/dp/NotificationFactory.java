@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern;
+package com.ankit.poc.dp;
 
 public class NotificationFactory {
   private static final NotificationFactory INSTANCE = new NotificationFactory();

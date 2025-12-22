@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern.micro_services.background_job;
+package com.ankit.poc.dp.ms.bg_job;
 
 import java.util.List;
 import org.springframework.scheduling.annotation.Scheduled;

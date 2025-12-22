@@ -1,8 +1,8 @@
-package com.ankit.poc.design_pattern.micro_services;
+package com.ankit.poc.dp.ms;
 
-import com.ankit.poc.design_pattern.micro_services.events.InventoryFailedEvent;
-import com.ankit.poc.design_pattern.micro_services.events.InventoryReservedEvent;
-import com.ankit.poc.design_pattern.micro_services.events.PaymentCompletedEvent;
+import com.ankit.poc.dp.ms.events.InventoryFailedEvent;
+import com.ankit.poc.dp.ms.events.InventoryReservedEvent;
+import com.ankit.poc.dp.ms.events.PaymentCompletedEvent;
 
 public class InventoryService {
 

@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern;
+package com.ankit.poc.dp;
 
 public class BasicNotThreadSafeSingleton {
   private static BasicNotThreadSafeSingleton instance;

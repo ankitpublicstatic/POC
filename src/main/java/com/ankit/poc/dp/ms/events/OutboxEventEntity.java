@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern.micro_services.events;
+package com.ankit.poc.dp.ms.events;
 
 import lombok.Data;
 

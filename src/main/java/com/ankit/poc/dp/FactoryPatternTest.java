@@ -1,4 +1,4 @@
-package com.ankit.poc.design_pattern;
+package com.ankit.poc.dp;
 
 interface Shape {
   void draw();

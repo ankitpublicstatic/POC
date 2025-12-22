@@ -1,8 +1,8 @@
-package com.ankit.poc.design_pattern.micro_services;
+package com.ankit.poc.dp.ms;
 
 import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
-import com.ankit.poc.design_pattern.micro_services.events.OrderCreatedEvent;
+import com.ankit.poc.dp.ms.events.OrderCreatedEvent;
 
 @Service
 public class OrderService {
