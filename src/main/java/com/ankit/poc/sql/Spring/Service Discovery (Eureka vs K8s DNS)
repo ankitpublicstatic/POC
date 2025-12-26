@@ -1,6 +1,6 @@
-Service Discovery is **how one microservice finds the network location (IP + port) of another microservice** without hard-coding it.
+Service Discovery is how one microservice finds the network location (IP + port) of another microservice without hard-coding it.
 
-In modern systems (like the Zepto-style architectures you’ve been asking about), **service discovery is foundational**. Let’s go **step-by-step, from basics → deep internals → real production comparison**.
+In modern systems (like the Zepto-style architectures you’ve been asking about), service discovery is foundational. Let’s go step-by-step, from basics → deep internals → real production comparison.
 
 ---
 
@@ -8,9 +8,9 @@ In modern systems (like the Zepto-style architectures you’ve been asking about
 
 In microservices:
 
-* Services **scale up/down**
-* Pods/VMs **die and restart**
-* IPs **change constantly**
+ Services scale up/down
+ Pods/VMs die and restart
+ IPs change constantly
 
 ❌ Hardcoding `http://10.1.2.45:8080` is impossible.
 
@@ -18,18 +18,18 @@ So we need:
 
 > “Give me the current healthy instance of `inventory-service`”
 
-That mechanism is **Service Discovery**.
+That mechanism is Service Discovery.
 
 ---
 
 ## 2️⃣ Two Models of Service Discovery
 
-There are **two architectural styles**:
+There are two architectural styles:
 
 | Model                     | Description                           |
 | ------------------------- | ------------------------------------- |
-| **Client-Side Discovery** | Client finds service instances itself |
-| **Server-Side Discovery** | Infrastructure routes request         |
+| Client-Side Discovery | Client finds service instances itself |
+| Server-Side Discovery | Infrastructure routes request         |
 
 ---
 
@@ -37,7 +37,7 @@ There are **two architectural styles**:
 
 ### 🔹 What is Eureka?
 
-Eureka is **Netflix’s service registry** used heavily in **Spring Boot microservices (pre-Kubernetes era)**.
+Eureka is Netflix’s service registry used heavily in Spring Boot microservices (pre-Kubernetes era).
 
 ### 🔹 How Eureka Works (Step-by-Step)
 
@@ -51,16 +51,16 @@ inventory-service → Eureka Server
 
 It sends:
 
-* service-name
-* IP
-* port
-* metadata
+ service-name
+ IP
+ port
+ metadata
 
 Eureka stores it in memory.
 
 #### ② Heartbeats
 
-Every **30 seconds**, service sends:
+Every 30 seconds, service sends:
 
 ```text
 "I'm alive"
@@ -80,11 +80,11 @@ Steps:
 
 1. Order service asks Eureka:
    → “Give me instances of inventory-service”
-2. Eureka returns a **list of IPs**
-3. **Client load-balances** (Ribbon / Spring Cloud LoadBalancer)
+2. Eureka returns a list of IPs
+3. Client load-balances (Ribbon / Spring Cloud LoadBalancer)
 4. Client makes HTTP call
 
-👉 **Client decides which instance to call**
+👉 Client decides which instance to call
 
 ---
 
@@ -112,16 +112,16 @@ Inventory Service (one instance)
 
 ✅ Pros:
 
-* Works outside Kubernetes (VMs, EC2)
-* Spring Cloud integration is simple
-* Fine-grained control in client
+ Works outside Kubernetes (VMs, EC2)
+ Spring Cloud integration is simple
+ Fine-grained control in client
 
 ❌ Cons:
 
-* Extra infrastructure (Eureka servers)
-* Client is tightly coupled to discovery logic
-* Scaling issues at very large scale
-* Not cloud-native
+ Extra infrastructure (Eureka servers)
+ Client is tightly coupled to discovery logic
+ Scaling issues at very large scale
+ Not cloud-native
 
 ---
 
@@ -129,7 +129,7 @@ Inventory Service (one instance)
 
 ### 🔹 What is K8s Service Discovery?
 
-Kubernetes provides **built-in service discovery via DNS**.
+Kubernetes provides built-in service discovery via DNS.
 
 No Eureka.
 No registry.
@@ -156,8 +156,8 @@ spec:
 
 #### ② Kubernetes Creates:
 
-* **ClusterIP**
-* **DNS entry**
+ ClusterIP
+ DNS entry
 
 ```
 inventory-service.default.svc.cluster.local
@@ -179,8 +179,8 @@ What happens:
 2. Kube-proxy load-balances traffic
 3. Traffic goes to a healthy pod
 
-👉 **Client does NOT know instances**
-👉 **Kubernetes handles routing**
+👉 Client does NOT know instances
+👉 Kubernetes handles routing
 
 ---
 
@@ -208,17 +208,17 @@ Inventory Pod
 
 ✅ Pros:
 
-* Zero client-side complexity
-* Cloud-native
-* Highly scalable
-* Integrated with health checks
-* Works with autoscaling
+ Zero client-side complexity
+ Cloud-native
+ Highly scalable
+ Integrated with health checks
+ Works with autoscaling
 
 ❌ Cons:
 
-* Limited client control
-* DNS caching edge cases
-* Requires Kubernetes
+ Limited client control
+ DNS caching edge cases
+ Requires Kubernetes
 
 ---
 
@@ -248,7 +248,7 @@ Inventory Pod
 | Zepto / Swiggy / Blinkit | Kubernetes DNS |
 | Uber (modern)            | K8s + Envoy    |
 
-👉 **Modern systems DO NOT use Eureka if they are on Kubernetes**
+👉 Modern systems DO NOT use Eureka if they are on Kubernetes
 
 ---
 
@@ -262,11 +262,11 @@ Spring Boot + Eureka + Kubernetes
 
 You get:
 
-* Duplicate service discovery
-* Unnecessary latency
-* Operational pain
+ Duplicate service discovery
+ Unnecessary latency
+ Operational pain
 
-🚫 **Anti-pattern**
+🚫 Anti-pattern
 
 ---
 
@@ -274,13 +274,13 @@ You get:
 
 Service Mesh (Istio, Linkerd):
 
-* Uses **K8s DNS for discovery**
-* Adds:
+ Uses K8s DNS for discovery
+ Adds:
 
-  * retries
-  * circuit breaking
-  * mTLS
-  * observability
+   retries
+   circuit breaking
+   mTLS
+   observability
 
 👉 Discovery stays with Kubernetes.
 
@@ -288,32 +288,32 @@ Service Mesh (Istio, Linkerd):
 
 ## 9️⃣ Decision Rule (Very Important)
 
-### ✅ Use Eureka **ONLY IF**:
+### ✅ Use Eureka ONLY IF:
 
-* You are NOT on Kubernetes
-* You are on VMs / EC2
-* Legacy Spring Cloud stack
+ You are NOT on Kubernetes
+ You are on VMs / EC2
+ Legacy Spring Cloud stack
 
-### ✅ Use Kubernetes DNS **IF**:
+### ✅ Use Kubernetes DNS IF:
 
-* You run on Kubernetes (EKS, GKE, AKS)
-* You want cloud-native scalability
-* You use autoscaling & self-healing
+ You run on Kubernetes (EKS, GKE, AKS)
+ You want cloud-native scalability
+ You use autoscaling & self-healing
 
 ---
 
 ## 🔟 One-Line Summary
 
-> **Eureka = application-level discovery (old-school)**
-> **Kubernetes DNS = platform-level discovery (modern standard)**
+> Eureka = application-level discovery (old-school)
+> Kubernetes DNS = platform-level discovery (modern standard)
 
 ---
 
 If you want, next I can explain:
 
-* **How retries + timeouts differ in Eureka vs K8s**
-* **Why client-side load balancing breaks under partial failures**
-* **How K8s DNS works under pod churn**
-* **How Zepto handles discovery + resilience in flash sales**
+ How retries + timeouts differ in Eureka vs K8s
+ Why client-side load balancing breaks under partial failures
+ How K8s DNS works under pod churn
+ How Zepto handles discovery + resilience in flash sales
 
 Just tell me 👍
