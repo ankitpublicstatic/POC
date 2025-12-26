@@ -65,24 +65,24 @@ public class OverlapingTest {
 
 
   // EMP
-  //
+
   // NAME ID MANAGERID
-  //
+
   // RAKESH 1
-  //
+
   // ABHISHEK 2 1
-  //
+
   // PRAKASH 3 2
-  //
+
   // MANJU 4 3
-  //
+
   // SHINATH 5 2
-  //
+
   // Get employees and their manager names ?
-  //
+
   // select e.name as employee_name, e.name as manager_name from emp e
   // left join emp r on e.managerid = r.id;
-  //
+
 
 
 }

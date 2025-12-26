@@ -1,0 +1,291 @@
+Zepto Inventory Service Design
+
+Request:  1.75 Million Per day: 18 Lalkh
+
+ 10 K per Second
+ 
+We will use Netty Server for high Concurrency or Node js
+
+Below is Zepto-style inventory Service design, explained the way it's expected in Real world.
+
+1. First High Level Design HLD then 
+Low Level Design LLD with data models, APIs, concurrency, and failure handling.
+
+I will keep it realistic to Zepto-Blinkit-Instamart Scale (Dark Stores, 10-minute delivery, high concurrency).
+
+Problem Understanding (Zepto-Context)
+Zepto-operates on:-
+	1. Dark stores/ micro-warehouses
+	2. Hyper-local inventory
+	3. Very high read traffic
+	4. Extremely strict stock correctness
+	5. Flash Sales & Spikes
+
+Core Inventory Responsibilities
+	1. Show available items for a user's location.
+	2. Reserve stock during checkout.
+	3. Deduct stock after payment
+	4. Release stock on failure / timeout
+	5. Sync with Order, Catalog, Pricing
+	6. Handle concurrency at scale
+	
+2. High Level Design HLD
+2.1 Core Services
+
+	Client (App)
+		|
+	API Gateway
+		|
+	-------------------------------
+	| Inventory Service			  |
+	| Order Service				  |
+	| Catalog Service			  |
+	| Pricing Service			  |
+	-------------------------------
+		|
+	Event Bus (Kafka Distributed System for Handling local transaction in between all microservices)
+		|
+	Analytics / Reconciliation
+	
+
+2.2 Inventory Services Responsibilities:-
+
+Responsibility				Explanation
+Stock Read					Fast read of available items
+Stock Reservation			Temporarily lock stock
+Stock Deduction 				Final commit after payment
+Stock Release				On cancel / timeout
+Store-level isolation		Each dark store independent
+Event Publishing				InventoryChanged Events
+
+2.3 Inventory Architecture HLD
+
+
+                 ┌───────────────┐
+                 │  API Gateway  │
+                 └───────┬───────┘
+                         │
+                 ┌───────▼───────┐
+                 │ Inventory API │
+                 └───────┬───────┘
+                         │
+        ┌────────────────▼────────────────┐
+        │      Inventory Core Service     │
+        │---------------------------------│
+        │ - Stock Read                    │
+        │ - Reserve Stock                 │
+        │ - Release Stock                 │
+        │ - Deduct Stock                  │
+        └───────────┬───────────┬─────────┘
+                    │           │
+        ┌───────────▼───┐   ┌───▼──────────┐
+        │ Redis Cache   │   │ Inventory DB │
+        │ (Hot stock)   │   │ (Strong ACID)│
+        └───────────────┘   └──────────────┘
+                    │
+            ┌───────▼────────┐
+            │ Kafka Events   │
+            └────────────────┘
+
+
+2.4 Data Storage Choice
+
+Component 		Tech	nology				Reason
+
+Inventory DB		PostgreSQL/ AWS Auura	Strong consistency & High availablity
+Cache			Redis					Sub-milisecond reads
+Event/Messaging Kafka					Async updated & High throughput
+Locking 			Redis / DB row locks 	Concurrency
+
+
+
+3. LOW LEVEL DESIGN (LLD)
+
+3.1 Inventory Data Model
+Inventory Table
+	
+	inventory {
+	id BIGINT PK,
+	product_id BIGINT,
+	store_id BIGINT,
+	total_stock INT,
+	reserved_stock INT,
+	available_stock INT,
+	version INT,
+	updated_at TIMESTAMP
+	}
+	
+Reservation Table
+
+	inventory_reservation {
+	reservation_id UUID PK,
+	order_id BIGINT,
+	product_id BIGINT,
+	store_id BIGINT,
+	quantity INT,
+	status ENUM('ACTIVE', 'RELEASED', 'CONFIRMED'),
+	expires_at TIMESTAMP
+	}
+	
+3.2 WHY available_stock?
+
+	available_stock = total_stock - reserved_stock;
+This avoids expensive runtime calculations under heavy load.
+
+3.3. APIs (LLD)
+
+Get Available Inventory
+
+1.> GET /inventory/availability?storedId?12&productIds=1,2,3
+
+Flow:   
+		1. Read from Redis
+		2. Fallback to DB
+		3. Cache result
+		
+2.> POST /inventory/reserve
+	{
+		"orderId" 123,
+		"storedId" 12,
+		"items": [
+			{ "productId": 1, "qty": 2}
+		]
+	}
+	
+Reservation Logic (Very IMPORTANT)
+
+Option 1: Optimistic Locking (Used in Zepto-like systems)
+	
+	UPDATE inventory
+	SET reserved_stock = reserved_stock + 2,
+		available_stock = available_stock - 2,
+		version = version + 1
+	WHERE product_id = 1
+	AND store_id = 12
+	AND available_stock >= 2
+	AND version = ?
+
+	Prevents overselling
+	High throughput
+	Retry on version mismatch
+	
+3. Confirm Inventory (Post Payment)
+
+POST /inventory/confirm
+
+	UPDATE inventory
+	SET total_stock = total_stock - 2,
+		reserved_stock = reserved_stock - 2
+	WHERE product_id = 1 
+	AND store_id = 12
+
+4. Release Inventory (Timeout / Cancel)
+
+POST /inventory/release
+ 
+	UPDATE inventory
+	SET reserved_stock = reserved_stock - 2,
+		available_stock = available_stock + 2
+	WHERE product_id = 1
+	AND store_id = 12
+
+3.4 Reservation Timeout Handling
+
+Strategy
+	Reservation expires in 5-10 minutes
+	Cron or Kafka consumer scans expired reservations
+	Auto release stock
+	
+	SELECT * FROM inventory_reservation 
+	WHERE status = 'ACTIVE' 
+	AND expires_at < now()
+	
+3.5 Concurrency Handling (Very IMPORTANT)
+
+Problem
+100 users click "Buy" on the last item.	
+
+Solution Stack
+
+Layer				Mechanism
+DB					Optimistic locking
+Cache				Atomic Lua scripts
+API					Retry with backoff
+Design				Reservation based
+
+
+3.6 Redis Stock Management (Hot Path)
+
+if redis.call("GET", key) >= qty then
+	redis.call("DECRBY", key, qty)
+	return 1
+else
+	return 0
+end
+
+No race condition
+Sub-millisecond
+
+DB updated asynchronously via Kafka.
+
+3.7 Event Flow Kafka
+
+	InventoryReserved
+	InventoryConfirmed
+	InventoryReleased
+	InventoryAdjusted
+
+Consumers: 
+	Analytics
+	Store dashboards
+	Reconciliation jobs
+	Search ranking
+
+4. Failure Scenarios & Handling
+
+Payment Success but Inventory Confirm Failed
+	Saga pattern
+	Retry confirm
+	Manual reconciliation job
+	
+Cache & DB Inconsistency
+
+	DB is source of truth
+	Cache rebuilt from DB
+	Periodic reconciliation
+
+Store Goes Offline
+	
+	Inventory isolated per store
+	Orders routed to nearest store
+
+Scalability Considerations
+
+Concern					Solution
+
+High Reads				Redis + local Cache
+Write Spikes				Partition by store
+Flash Sales				Pre-warm cache
+Hot Products				Sharded Redis Keys
+Consistency				Reservation model
+
+Zepto inventory uses a reservation-based model with optimistic locking at DB level and atomic Redis operation for fast reads. Each store maintains isolated inventory, reservations expire automatically, and Kafka ensures eventual consistency across services. 
+
+
+Real Production Recommendation (2025)
+Use Spring Cloud Gateway with:
+
+✔ OAuth2 / JWT
+✔ Rate limiting (Redis)
+✔ Circuit breaker (Resilience4j)
+✔ Load balancing (Spring Cloud LoadBalancer)
+
+Typical stack:
+
+Client
+  ↓
+Spring Cloud Gateway
+  ↓
+Service Discovery (Eureka / K8s DNS)
+  ↓
+Microservices
