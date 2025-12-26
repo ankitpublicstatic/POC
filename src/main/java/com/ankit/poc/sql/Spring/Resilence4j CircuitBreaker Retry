@@ -1,0 +1,249 @@
+Both annotations come from **Resilience4j**, but they solve **very different failure problems**.
+Let’s break this down **conceptually + behaviorally + when to use which**, with **real microservice examples**.
+
+---
+
+## 1️⃣ `@CircuitBreaker`
+
+```java
+@CircuitBreaker(
+    name = USER_SERVICE,
+    fallbackMethod = "getAllAvailableProducts"
+)
+```
+
+### 🔴 What problem does it solve?
+
+**Prevents cascading failures** when a downstream service is **consistently failing**.
+
+Think:
+
+> “This service is broken. Stop calling it for some time.”
+
+---
+
+### 🧠 How it works (State Machine)
+
+CircuitBreaker has **3 states**:
+
+```
+CLOSED → OPEN → HALF_OPEN → CLOSED
+```
+
+#### CLOSED
+
+* Normal operation
+* Requests go through
+* Failure rate is monitored
+
+#### OPEN
+
+* Failure threshold exceeded
+* **Calls are blocked immediately**
+* Fallback is executed
+* Protects system from overload
+
+#### HALF_OPEN
+
+* After wait duration
+* Few trial calls allowed
+* If success → CLOSED
+* If failure → OPEN again
+
+---
+
+### ⚙ Example scenario (Real-world)
+
+User Service is down due to:
+
+* DB outage
+* Deployment issue
+* Dependency failure
+
+Without CircuitBreaker:
+
+```
+Order Service → User Service (timeout) ❌
+               → Thread pool exhaustion
+               → Order Service also dies ❌
+```
+
+With CircuitBreaker:
+
+```
+Order Service → Circuit OPEN
+               → fallback executed
+               → Order Service stays healthy ✅
+```
+
+---
+
+### 🧯 Fallback use-case
+
+```java
+public List<Product> getAllAvailableProducts(Throwable ex) {
+    // return cached / default / partial data
+}
+```
+
+---
+
+### ✅ When to use CircuitBreaker
+
+✔ Downstream service is **unreliable or slow**
+✔ Want to **fail fast**
+✔ Prevent **cascading failure**
+✔ Heavy load systems (Zepto / Swiggy / Uber)
+
+---
+
+## 2️⃣ `@Retry`
+
+```java
+@Retry(
+    name = USER_SERVICE,
+    fallbackMethod = "getAllAvailableProducts"
+)
+```
+
+### 🔁 What problem does it solve?
+
+Handles **temporary / transient failures**.
+
+Think:
+
+> “It failed once… maybe try again?”
+
+---
+
+### 🧠 How Retry works
+
+* On failure:
+
+  * Retry the call **N times**
+  * With optional delay / backoff
+* If all retries fail → fallback
+
+---
+
+### ⚙ Example scenario (Real-world)
+
+Temporary issues:
+
+* Network glitch
+* DNS hiccup
+* Short GC pause
+* Cold start of pod
+
+```
+User Service:
+  First call ❌
+  Second call ✅
+```
+
+Retry saves you here.
+
+---
+
+### 🧯 Retry fallback
+
+```java
+public List<Product> getAllAvailableProducts(Exception ex) {
+    // fallback after all retries exhausted
+}
+```
+
+---
+
+### ⚠ Danger of Retry (very important)
+
+If service is **actually DOWN**:
+
+```
+Retry x 5 → 5x load on dead service ❌
+```
+
+This can:
+
+* Increase latency
+* DDoS the downstream service
+* Kill your own thread pools
+
+---
+
+### ✅ When to use Retry
+
+✔ Failure is **short-lived**
+✔ Calls are **idempotent**
+✔ Service is generally stable
+✔ Low traffic or safe retries
+
+---
+
+## 3️⃣ CircuitBreaker vs Retry (Side-by-side)
+
+| Aspect             | CircuitBreaker               | Retry                    |
+| ------------------ | ---------------------------- | ------------------------ |
+| Purpose            | Stop calling failing service | Retry transient failures |
+| Failure type       | Persistent failures          | Temporary failures       |
+| Load on downstream | **Reduces load**             | **Increases load**       |
+| Latency            | Fast failure                 | Higher latency           |
+| Protection         | System-wide safety           | Request-level            |
+| Best for           | DB down, service crash       | Network glitches         |
+
+---
+
+## 4️⃣ ❗ Using BOTH together (Best Practice)
+
+Most production systems use **Retry + CircuitBreaker**:
+
+```java
+@Retry(name = USER_SERVICE)
+@CircuitBreaker(
+    name = USER_SERVICE,
+    fallbackMethod = "getAllAvailableProducts"
+)
+public List<Product> getProducts() {
+    return userServiceClient.getProducts();
+}
+```
+
+### Execution order
+
+```
+Call → Retry (N times)
+      → CircuitBreaker checks failure rate
+      → If OPEN → fallback immediately
+```
+
+---
+
+## 5️⃣ Zepto / High-scale Microservices Recommendation
+
+| Scenario                       | Recommendation                 |
+| ------------------------------ | ------------------------------ |
+| Critical downstream service    | CircuitBreaker                 |
+| Temporary infra/network issues | Retry                          |
+| Flash sale / peak load         | CircuitBreaker (mandatory)     |
+| Idempotent GET APIs            | Retry + CB                     |
+| Payment APIs                   | CircuitBreaker + limited Retry |
+
+---
+
+## 6️⃣ TL;DR
+
+* **Retry** = “Try again, it might work”
+* **CircuitBreaker** = “Stop trying, it’s broken”
+* **Retry alone is dangerous**
+* **CircuitBreaker protects your system**
+* **Best practice: Retry + CircuitBreaker**
+
+---
+
+If you want, I can next explain:
+✔ How Resilience4j configs look in `application.yml`
+✔ Retry + CircuitBreaker execution flow diagram
+✔ How Zepto-like systems tune thresholds
+✔ Difference between Resilience4j and Hystrix
+
+Just tell me 👍
