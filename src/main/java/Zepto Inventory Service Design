@@ -207,11 +207,11 @@ Problem
 
 Solution Stack
 
-Layer				Mechanism
-DB					Optimistic locking
-Cache				Atomic Lua scripts
-API					Retry with backoff
-Design				Reservation based
+	Layer				Mechanism
+	DB					Optimistic locking
+	Cache				Atomic Lua scripts
+	API					Retry with backoff
+	Design				Reservation based
 
 
 3.6 Redis Stock Management (Hot Path)
@@ -282,10 +282,10 @@ Use Spring Cloud Gateway with:
 
 Typical stack:
 
-Client
-  ↓
-Spring Cloud Gateway
-  ↓
-Service Discovery (Eureka / K8s DNS)
-  ↓
-Microservices
+		Client
+		  ↓
+		Spring Cloud Gateway
+		  ↓
+		Service Discovery (Eureka / K8s DNS)
+		  ↓
+		Microservices
