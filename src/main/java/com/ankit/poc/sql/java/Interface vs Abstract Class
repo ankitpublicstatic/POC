@@ -519,3 +519,430 @@ If you want next:
  Why Spring discourages constants in interfaces
 
 Just tell me 🔥
+Great set of questions — this goes **below Java syntax into JVM + language design**.
+I’ll explain this in **three layers**: **(1) JVM reality**, **(2) Java language decisions**, **(3) Spring runtime behavior**.
+
+---
+
+# 1️⃣ Why Java DOES NOT allow extending multiple abstract / concrete classes
+
+*(but allows implementing multiple interfaces)*
+
+### Short answer
+
+👉 **To avoid state + constructor ambiguity and keep JVM object layout simple**
+
+---
+
+## 1.1 The real reason: **State + Constructors**
+
+### Classes (abstract or concrete) can have:
+
+* Instance fields (state)
+* Constructors
+* Method implementations
+
+Interfaces:
+
+* ❌ No instance fields
+* ❌ No constructors
+* ✔ Only method contracts (and now default methods)
+
+---
+
+### Problem scenario (why it breaks)
+
+```java
+abstract class A {
+    int x = 10;
+}
+
+abstract class B {
+    int x = 20;
+}
+
+class C extends A, B { }
+```
+
+❓ Which `x` does `C` inherit?
+
+* `A.x`?
+* `B.x`?
+* Both?
+
+👉 **Object memory layout becomes ambiguous**
+
+---
+
+### Constructor ambiguity
+
+```java
+abstract class A {
+    A() { System.out.println("A"); }
+}
+
+abstract class B {
+    B() { System.out.println("B"); }
+}
+
+class C extends A, B { }
+```
+
+❓ Which constructor runs first?
+
+* `A()` then `B()`?
+* `B()` then `A()`?
+* Both?
+
+👉 JVM **must guarantee deterministic object creation**
+👉 Java designers said **NO**
+
+---
+
+## 1.2 Why interfaces don’t have this problem
+
+Because interfaces:
+
+* Have **no instance state**
+* Have **no constructors**
+
+So JVM only needs to care about:
+
+* Method dispatch
+* No memory conflict
+
+That’s why Java allows:
+
+```java
+class C implements A, B, C {}
+```
+
+---
+
+## 1.3 Why C++ allows it (and Java doesn’t)
+
+C++ uses:
+
+* **Multiple vtables**
+* **Virtual inheritance**
+* **Diamond resolution rules**
+
+Java designers intentionally avoided this complexity to:
+
+* Keep JVM simple
+* Make Java safer and predictable
+* Avoid memory corruption
+
+> Java chose **simplicity over power**
+
+---
+
+# 2️⃣ Interface vs Abstract Class in JVM Bytecode (VERY IMPORTANT 🔥)
+
+Let’s go **under the hood**.
+
+---
+
+## 2.1 How JVM sees a class
+
+At runtime, JVM metadata includes:
+
+* Constant pool
+* Method table
+* Field table
+* Superclass pointer
+* Interface table
+
+---
+
+## 2.2 Abstract Class in Bytecode
+
+```java
+abstract class Animal {
+    abstract void speak();
+}
+```
+
+Bytecode (`javap -v Animal.class`):
+
+```
+flags: ACC_ABSTRACT, ACC_SUPER
+super_class: java/lang/Object
+```
+
+Key points:
+
+* Abstract class has **one direct superclass**
+* Methods may be abstract or concrete
+* JVM creates a **single inheritance chain**
+
+---
+
+## 2.3 Interface in Bytecode
+
+```java
+interface Flyable {
+    void fly();
+}
+```
+
+Bytecode:
+
+```
+flags: ACC_INTERFACE, ACC_ABSTRACT
+super_class: java/lang/Object
+interfaces: none
+```
+
+But when a class implements it:
+
+```java
+class Bird implements Flyable {}
+```
+
+```
+interfaces:
+  Flyable
+```
+
+👉 JVM stores **interface list separately**
+👉 Not part of inheritance chain
+
+---
+
+## 2.4 Method Dispatch Difference
+
+### Abstract / concrete class method
+
+* Uses **vtable (virtual method table)**
+* Fast lookup
+
+### Interface method
+
+* Uses **itable (interface table)**
+* Slightly slower (historically)
+* Optimized heavily by JIT
+
+👉 JVM handles them differently internally
+
+---
+
+## 2.5 Default methods changed JVM rules
+
+Before Java 8:
+
+* Interface = only abstract methods
+
+After Java 8:
+
+* Interface methods can have implementations
+
+JVM enhancement:
+
+* Interface methods can now have bytecode
+* Conflict resolution done **at compile time**, not runtime
+
+---
+
+# 3️⃣ Why Default Methods Were Added (Java 8)
+
+### The REAL reason (not theory)
+
+👉 **Backward compatibility**
+
+---
+
+## 3.1 The problem Java faced
+
+Before Java 8:
+
+```java
+interface List {
+    int size();
+}
+```
+
+If Java wanted to add:
+
+```java
+boolean isEmpty();
+```
+
+💥 BREAKING CHANGE
+Every implementation would fail to compile:
+
+* ArrayList
+* LinkedList
+* Custom implementations
+
+---
+
+## 3.2 Solution: Default Methods
+
+```java
+interface List {
+    default boolean isEmpty() {
+        return size() == 0;
+    }
+}
+```
+
+✔ Existing classes still compile
+✔ New behavior added
+✔ No forced implementation
+
+---
+
+## 3.3 Why default methods are SAFE
+
+Rules:
+
+1. **Class wins over interface**
+2. **More specific interface wins**
+3. **Conflict must be resolved explicitly**
+
+```java
+class MyList extends AbstractList implements List {
+    // AbstractList implementation wins
+}
+```
+
+---
+
+## 3.4 Default methods are NOT for state
+
+❌ No instance variables
+❌ No constructors
+
+Still stateless → safe for JVM
+
+---
+
+# 4️⃣ Spring `@Autowired` Interface Injection (Deep Explanation)
+
+---
+
+## 4.1 What Spring actually injects
+
+```java
+@Autowired
+private PaymentService paymentService;
+```
+
+Spring does:
+
+1. Looks for **beans implementing PaymentService**
+2. Picks one:
+
+   * `@Primary`
+   * `@Qualifier`
+   * Name-based resolution
+3. Injects a **proxy or concrete instance**
+
+---
+
+## 4.2 Why interface-based injection is preferred
+
+### Loose coupling
+
+```java
+@Service
+class StripePaymentService implements PaymentService {}
+```
+
+Later:
+
+```java
+@Service
+class RazorpayPaymentService implements PaymentService {}
+```
+
+👉 No code change in consumers
+
+---
+
+## 4.3 Proxy magic (VERY IMPORTANT)
+
+Spring often injects:
+
+* JDK Dynamic Proxy (interface-based)
+* CGLIB proxy (class-based)
+
+### JDK Proxy
+
+```text
+PaymentService -> Proxy -> Implementation
+```
+
+Requires:
+✔ Interface
+
+That’s why Spring loves interfaces.
+
+---
+
+## 4.4 What happens without interface
+
+```java
+@Autowired
+private StripePaymentService service;
+```
+
+Problems:
+
+* Tight coupling
+* Hard to mock
+* Forces CGLIB subclassing
+
+---
+
+## 4.5 Why `@Transactional` works better with interfaces
+
+* JDK Proxy intercepts interface methods
+* Cleaner AOP
+* Fewer edge cases
+
+---
+
+# 5️⃣ Final Summary (Interview Gold 🥇)
+
+### Why multiple class inheritance is forbidden
+
+* State ambiguity
+* Constructor ambiguity
+* JVM object layout complexity
+
+### Why interfaces are allowed
+
+* No state
+* No constructors
+* Safe multiple inheritance
+
+### JVM difference
+
+* Class → vtable
+* Interface → itable
+* Separate metadata paths
+
+### Why default methods exist
+
+* Backward compatibility
+* API evolution
+* Zero breakage
+
+### Spring best practice
+
+* Inject **interfaces**
+* Implement via services
+* Let Spring proxy them
+
+---
+
+If you want next:
+
+* JVM memory layout diagram
+* vtable vs itable visual
+* Spring proxy bytecode demo
+* Kotlin’s solution to this problem
+
+Just say the word 👌

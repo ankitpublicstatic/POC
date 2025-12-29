@@ -1,0 +1,151 @@
+Others call it work;we call it shaping the future
+
+
+Golang
+Cassandra
+Kafka
+Elasticsearch
+SQL
+Redis
+ZMQ
+AWS Cloud
+Git
+fault-tolerant,
+Oauth2.0
+SonarCloud
+Fintech/Crypto/Digital Asset
+
+
+Backend Engineer II - Cloud
+Apply
+locations
+India - Bangalore
+time type
+Full time
+posted on
+Posted 3 Days Ago
+job requisition id
+R25710
+As a global leader in cybersecurity, CrowdStrike protects the people, processes and technologies that drive modern organizations. Since 2011, our mission hasn’t changed — we’re here to stop breaches, and we’ve redefined modern security with the world’s most advanced AI-native platform. We work on large scale distributed systems, processing almost 3 trillion events per day and this traffic is growing daily. Our customers span all industries, and they count on CrowdStrike to keep their businesses running, their communities safe and their lives moving forward. We’re also a mission-driven company. We cultivate a culture that gives every CrowdStriker both the flexibility and autonomy to own their careers. We’re always looking to add talented CrowdStrikers to the team who have limitless passion, a relentless focus on innovation and a fanatical commitment to our customers, our community and each other. Ready to join a mission that matters? The future of cybersecurity starts with you.
+
+About the Role:
+
+We're seeking a highly skilled Cloud Engineer II to join our Falcon Risk Platform team at CrowdStrike. As a key member of our team, you'll play a critical role in designing and building the foundational risk platform that powers our industry-leading cybersecurity solutions. You'll work with cutting-edge technologies, including Golang, microservices architecture, and diverse database ecosystems, to deliver comprehensive visibility into risks, management features and prioritization workflows.
+
+Our team is responsible for building and maintaining the Risk platform group within Falcon Exposure Management PG, which offers a single pane of glass experience by aggregating all risks within an organization in a single place. You'll work on a globally distributed, fault-tolerant, and highly scalable cloud ecosystem that supports integration of risk from Crowdstrike's internal providers as well as from 3rd party integrations.
+
+As a technical leader, you'll drive end-to-end product delivery, architect scalable solutions, and collaborate with cross-functional stakeholders to define priorities and scope. Your expertise will directly influence the cybersecurity landscape, protecting organizations from sophisticated threats while advancing the state of the art in exposure management.
+
+Don't worry if you don't know Golang, we will teach you!
+
+If you are a hands-on engineer who wants to operate at scale, apply & let's talk!
+
+Find out more about Falcon Exposure Management product:
+
+https://www.crowdstrike.com/en-us/platform/exposure-management/risk-based-vulnerability-management/
+
+CrowdStrike is a computer security company, but we do not require candidates for this role to have prior security industry experience. We will mentor and train in security topics as needed. We do expect a strong interest in CrowdStrike's mission and a willingness to engage with the needs of our product teams and customers.
+
+We Invite You To:
+
+Find out why you should join CrowdStrike recognised as a pre-eminent market and technology leader in cybersecurity - https://bit.ly/3GMSqll
+
+Meet our Engineers - www.youtube.com/watch?v=910FGi7VSWU
+
+What You'll Do:
+
+Backend Architecture and Development: Design and develop scalable backend services powering both internal and customer-facing web applications, with a focus on performance, reliability, and security. Develop and maintain APIs, microservices, and data pipelines to support the growth of the platform. Collaborate with cross-functional teams to identify and prioritize project requirements.
+
+Cloud Infrastructure and Operations: Collaborate with the DevOps team to design and implement cloud infrastructure solutions using AWS, Azure, or GCP, ensuring scalability, security, and high availability. Develop and maintain scripts and tools to automate deployment, monitoring, and maintenance tasks. Ensure compliance with security and regulatory requirements.
+
+Database Management and Data Engineering: Design and implement database solutions using RDBMS/SQL, NoSQL databases, and distributed caching solutions like Redis, ensuring data consistency, integrity, and performance. Develop and maintain data pipelines and ETL processes to support data integration and analytics. Ensure data security and compliance across different databases and data stores.
+
+System Troubleshooting and Performance Optimization: Troubleshoot complex distributed architectures, identifying and resolving performance and reliability issues. Develop and implement monitoring and logging solutions to improve system visibility and debugging capabilities. Collaborate with cross-functional teams to identify and prioritize performance optimization opportunities.
+
+Collaboration and Technical Leadership: Partner with cross-functional teams, including UX/UI, Sensors, and other teams, to deliver integrated solutions with comprehensive documentation. Provide technical guidance and mentorship to junior engineers, ensuring knowledge sharing and skill development within the team. Collaborate with technical leaders to define technical vision and strategy.
+
+Operational Excellence and Service Reliability: Configure advanced monitoring, alerting, and maintain high availability for production services, ensuring robust and healthy service operations. Develop and implement incident response plans and procedures to minimize downtime and ensure high availability. Collaborate with cross-functional teams to identify and prioritize operational excellence initiatives.
+
+You'll Use:
+
+Golang
+
+Cassandra
+
+Kafka
+
+Elasticsearch
+
+SQL
+
+Redis
+
+ZMQ
+
+AWS Cloud
+
+Git
+
+What You'll Need:
+
+Exceptional problem-solving abilities with 5+ years of proven experience architecting and building distributed applications
+
+Fluency in at least one programming language, preferably in Scala or Go. Java, .Net or any other programming language can be considered.
+
+Ability to design scalable and resilient microservice-based architectures, including clean REST APIs and streaming communication channels
+
+Past experience(s) with building distributed ETLs or data ingestion pipelines
+
+Understanding of multithreading, concurrency, and parallel processing technologies
+
+A thorough understanding of engineering best practices from appropriate testing paradigms to effective peer code reviews and resilient architecture
+
+Understanding scalability and distributed systems i.e. sharding, partitioning, concurrency, etc.
+
+Cloud Infrastructure Knowledge: AWS or GCP / Azure
+
+Team player skills – we embrace collaborating as a team as much as possible
+
+Bachelor’s or Master’s degree in Computer Science or related field or equivalent work experience.
+
+Solid foundation in algorithms, data structures, and technical problem-solving
+
+Bonus Points: 
+
+Machine learning, AI implementation or Agentic AI usage experience
+
+Prior experience building data platforms at scale
+
+Practical experience with golang, Cassandra, Kafka, Elasticsearch, SQL, Redis
+
+Prior experience in the cybersecurity or intelligence fields.
+
+If you have some but not all of the qualifications, but bring a passion for cybersecurity, we’d like to talk!
+
+#LI-DP1
+
+#LI-VJ1
+
+Benefits of Working at CrowdStrike: 
+
+Market leader in compensation and equity awards
+
+Comprehensive physical and mental wellness programs
+
+Competitive vacation and holidays for recharge
+
+Paid parental and adoption leaves
+
+Professional development opportunities for all employees regardless of level or role
+
+Employee Networks, geographic neighborhood groups, and volunteer opportunities to build connections
+
+Vibrant office culture with world class amenities
+
+Great Place to Work Certified™ across the globe 
+
+CrowdStrike is proud to be an equal opportunity employer. We are committed to fostering a culture of belonging where everyone is valued for who they are and empowered to succeed. We support veterans and individuals with disabilities through our affirmative action program.
+
+CrowdStrike is committed to providing equal employment opportunity for all employees and applicants for employment. The Company does not discriminate in employment opportunities or practices on the basis of race, color, creed, ethnicity, religion, sex (including pregnancy or pregnancy-related medical conditions), sexual orientation, gender identity, marital or family status, veteran status, age, national origin, ancestry, physical disability (including HIV and AIDS), mental disability, medical condition, genetic information, membership or activity in a local human rights commission, status with regard to public assistance, or any other characteristic protected by law. We base all employment decisions--including recruitment, selection, training, compensation, benefits, discipline, promotions, transfers, lay-offs, return from lay-off, terminations and social/recreational programs--on valid job requirements.
+
+If you need assistance accessing or reviewing the information on this website or need help submitting an application for employment or requesting an accommodation, please contact us at recruiting@crowdstrike.com for further assistance.

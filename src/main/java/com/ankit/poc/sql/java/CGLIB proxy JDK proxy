@@ -1,0 +1,302 @@
+Perfect topic 👍
+This is **core Spring + JVM + AOP internals**, and many production bugs come from misunderstanding this.
+
+I’ll explain this in **layers**:
+
+1. **What a proxy is**
+2. **JDK Dynamic Proxy (interface-based)**
+3. **CGLIB Proxy (class-based)**
+4. **How Spring chooses**
+5. **Real production pitfalls**
+6. **Comparison table**
+7. **Interview-ready summary**
+
+---
+
+# 1️⃣ What is a Proxy (in Spring)?
+
+A **proxy** is an **object that wraps another object** and intercepts method calls.
+
+```text
+Caller → Proxy → Target Object
+```
+
+Spring uses proxies for:
+
+* `@Transactional`
+* `@Cacheable`
+* `@Async`
+* `@Retryable`
+* `@CircuitBreaker`
+* Security checks
+
+---
+
+# 2️⃣ JDK Dynamic Proxy (Interface-Based)
+
+### What it is
+
+Built into Java (`java.lang.reflect.Proxy`).
+
+It creates a class **at runtime** that:
+
+* Implements one or more interfaces
+* Delegates calls to an `InvocationHandler`
+
+---
+
+## 2.1 How it works internally
+
+```java
+PaymentService proxy =
+    (PaymentService) Proxy.newProxyInstance(
+        PaymentService.class.getClassLoader(),
+        new Class[]{PaymentService.class},
+        new InvocationHandler() {
+            public Object invoke(Object proxy, Method method, Object[] args) {
+                // before
+                Object result = method.invoke(target, args);
+                // after
+                return result;
+            }
+        }
+    );
+```
+
+👉 JVM generates a class like:
+
+```java
+class $Proxy12 implements PaymentService {
+    public void pay() {
+        handler.invoke(this, payMethod, args);
+    }
+}
+```
+
+---
+
+## 2.2 Key characteristics
+
+| Feature             | JDK Proxy               |
+| ------------------- | ----------------------- |
+| Requires interface  | ✅                       |
+| Proxy type          | Implements interface    |
+| Inheritance         | `extends Proxy`         |
+| Method interception | Via `InvocationHandler` |
+| Performance         | Fast (JIT optimized)    |
+| Final methods       | ❌ Cannot intercept      |
+| Self-invocation     | ❌ Not intercepted       |
+
+---
+
+## 2.3 Why Spring prefers JDK Proxy
+
+✔ Clean separation
+✔ No bytecode libraries
+✔ Safe
+✔ Simple
+
+That’s why:
+
+```java
+@Autowired
+PaymentService paymentService;
+```
+
+is best practice.
+
+---
+
+# 3️⃣ CGLIB Proxy (Class-Based)
+
+### What it is
+
+Uses **bytecode generation** (CGLIB / ASM).
+
+Creates a **subclass of the target class** at runtime.
+
+---
+
+## 3.1 How it works internally
+
+```java
+class PaymentService$$EnhancerBySpringCGLIB
+    extends PaymentService {
+
+    @Override
+    public void pay() {
+        // before
+        super.pay();
+        // after
+    }
+}
+```
+
+No interface required.
+
+---
+
+## 3.2 Key characteristics
+
+| Feature            | CGLIB                   |
+| ------------------ | ----------------------- |
+| Requires interface | ❌                       |
+| Proxy type         | Subclass                |
+| Final classes      | ❌ Cannot proxy          |
+| Final methods      | ❌ Cannot intercept      |
+| Constructors       | Called                  |
+| Performance        | Slightly slower startup |
+| Bytecode lib       | Yes                     |
+
+---
+
+## 3.3 When Spring uses CGLIB automatically
+
+* No interface present
+* `proxyTargetClass = true`
+* `@Configuration` classes
+* `@Autowired` concrete class
+
+---
+
+# 4️⃣ How Spring Chooses Between Them
+
+### Default rule
+
+```text
+If interface exists → JDK Proxy
+Else → CGLIB
+```
+
+---
+
+### Forcing CGLIB
+
+```java
+@EnableTransactionManagement(proxyTargetClass = true)
+```
+
+or
+
+```properties
+spring.aop.proxy-target-class=true
+```
+
+---
+
+# 5️⃣ VERY IMPORTANT: Self-Invocation Problem 🚨
+
+```java
+@Service
+class OrderService {
+
+    @Transactional
+    public void placeOrder() {
+        saveOrder(); // ❌ NOT intercepted
+    }
+
+    @Transactional
+    public void saveOrder() {
+        // no transaction!
+    }
+}
+```
+
+### Why?
+
+Call path:
+
+```text
+this.placeOrder() → this.saveOrder()
+```
+
+❌ Proxy is bypassed
+
+### Solution
+
+✔ Move method to another bean
+✔ Inject self-proxy
+✔ Use AspectJ
+
+---
+
+# 6️⃣ Real Production Pitfalls (Common Bugs)
+
+---
+
+## 6.1 `@Transactional` not working
+
+❌ Method is:
+
+* `private`
+* `final`
+* Called internally
+* Not in interface (JDK proxy case)
+
+---
+
+## 6.2 `ClassCastException`
+
+```java
+OrderServiceImpl impl = (OrderServiceImpl) orderService;
+```
+
+Fails for JDK Proxy.
+
+✔ Always cast to interface.
+
+---
+
+## 6.3 `final` methods
+
+```java
+final void pay() {}
+```
+
+❌ Cannot be intercepted by either proxy.
+
+---
+
+# 7️⃣ JDK Proxy vs CGLIB – Comparison Table
+
+| Feature                      | JDK Proxy | CGLIB          |
+| ---------------------------- | --------- | -------------- |
+| Interface required           | ✅         | ❌              |
+| Proxy extends                | `Proxy`   | Target class   |
+| Intercepts interface methods | ✅         | ✅              |
+| Intercepts class methods     | ❌         | ✅              |
+| Final class/method           | ❌         | ❌              |
+| Memory footprint             | Low       | Higher         |
+| Startup time                 | Fast      | Slower         |
+| Recommended                  | ✅         | ⚠️ When needed |
+
+---
+
+# 8️⃣ Interview One-Liners 🧠
+
+* **JDK proxy uses interfaces and InvocationHandler**
+* **CGLIB creates subclass using bytecode**
+* **Spring prefers JDK proxies**
+* **Final methods can’t be proxied**
+* **Self-invocation bypasses proxies**
+
+---
+
+# 9️⃣ When to Use What (Best Practice)
+
+✔ Always define **service interfaces**
+✔ Inject by interface
+✔ Avoid `final` methods on beans
+✔ Avoid self-invocation
+✔ Use CGLIB only if required
+
+---
+
+If you want next:
+
+* Bytecode dump of CGLIB proxy
+* Why `@Configuration` always uses CGLIB
+* AspectJ vs Proxy-based AOP
+* Performance benchmark
+
+Just tell me 🔥
