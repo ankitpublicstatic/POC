@@ -2,22 +2,22 @@ Below is a production-grade, zero-downtime deployment strategy for a Spring Boot
 
 ---
 
- High-Level Architecture (Zero Downtime)
+High-Level Architecture (Zero Downtime)
 
 ```
-Git (GitHub/GitLab)
-   |
-   |  CI (Build, Test, Image)
-   v
-Docker Image → Amazon ECR
-   |
-   |  CD
-   v
-ECS / EKS (Blue–Green or Rolling)
-   |
-ALB (Health Checks + Traffic Shifting)
-   |
-Users
+		Git (GitHub/GitLab)
+		   |
+		   |  CI (Build, Test, Image)
+		   v
+		Docker Image → Amazon ECR
+		   |
+		   |  CD
+		   v
+		ECS / EKS (Blue–Green or Rolling)
+		   |
+		ALB (Health Checks + Traffic Shifting)
+		   |
+		Users
 ```
 
 ---

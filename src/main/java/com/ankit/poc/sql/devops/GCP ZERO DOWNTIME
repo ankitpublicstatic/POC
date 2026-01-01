@@ -9,15 +9,15 @@ I’ll cover architecture → zero-downtime strategy → CI/CD pipeline → roll
  Option A (Most Common & Recommended): GKE (Kubernetes)
 
 ```
-Client
-  |
-Cloud Load Balancer (HTTPS)
-  |
-GKE Ingress
-  |
-Kubernetes Service
-  |
-Spring Boot Pods (v1, v2)
+		Client
+		  |
+		Cloud Load Balancer (HTTPS)
+		  |
+		GKE Ingress
+		  |
+		Kubernetes Service
+		  |
+		Spring Boot Pods (v1, v2)
 ```
 
 Why GKE?
@@ -32,11 +32,11 @@ Why GKE?
  Option B: Cloud Run (Serverless Containers)
 
 ```
-Client
-  |
-Cloud Load Balancer
-  |
-Cloud Run (revisions v1, v2)
+		Client
+		  |
+		Cloud Load Balancer
+		  |
+		Cloud Run (revisions v1, v2)
 ```
 
 Why Cloud Run?
