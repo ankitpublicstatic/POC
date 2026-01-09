@@ -27,9 +27,9 @@ Core characteristics
 
 - Same API: You still use `Thread`, `Runnable`, `ExecutorService`, etc.; no new “reactive-style” APIs are required.
 - Lightweight: Small stacks and user-mode scheduling allow huge numbers of concurrent tasks.
-- Best for I/O-bound tasks: They shine when your threads spend a lot of time waiting on network, disk, database, or sleeping.[9][4]
+- Best for I/O-bound tasks: They shine when your threads spend a lot of time waiting on network, disk, database, or sleeping.
 
-They are not a magic speedup for CPU-heavy work; compute-bound tasks still need proper pooling, throttling, and parallelism design.[4][9]
+They are not a magic speedup for CPU-heavy work; compute-bound tasks still need proper pooling, throttling, and parallelism design.
 
 Creating virtual threads (basic example)
 
@@ -56,8 +56,8 @@ public class VirtualThreadDemo {
 }
 ```
 
-- `Thread.ofVirtual()` returns a `Thread.Builder` specialized for virtual threads.[9]
-- `start(...)` creates and starts a virtual thread; `join()` works the same as with platform threads.[9]
+- `Thread.ofVirtual()` returns a `Thread.Builder` specialized for virtual threads.
+- `start(...)` creates and starts a virtual thread; `join()` works the same as with platform threads.
 
 
 
@@ -131,18 +131,18 @@ public class VirtualThreadExecutorExample {
 }
 ```
 
-- `newVirtualThreadPerTaskExecutor()` creates an executor that spawns a new virtual thread for each submitted task.[8]
-- The carrier threads are managed internally, typically with a `ForkJoinPool`, and reused for many virtual tasks.[6][7]
+- `newVirtualThreadPerTaskExecutor()` creates an executor that spawns a new virtual thread for each submitted task.
+- The carrier threads are managed internally, typically with a `ForkJoinPool`, and reused for many virtual tasks.
 
 
 
 How they work internally (conceptual)
 
-- When a virtual thread is running, it is “mounted” on a carrier (platform) thread.[6][7]
-- When the virtual thread blocks on a known blocking point (e.g., `java.net`, `java.io`, `java.nio.channels` configured in blocking mode, `Thread.sleep`), the JVM unmounts it, saving its continuation/state.[1][7]
-- The carrier thread becomes free to run another virtual thread, and when the blocking operation completes, the parked virtual thread is remounted to a carrier to resume.[3][7]
+- When a virtual thread is running, it is “mounted” on a carrier (platform) thread.
+- When the virtual thread blocks on a known blocking point (e.g., `java.net`, `java.io`, `java.nio.channels` configured in blocking mode, `Thread.sleep`), the JVM unmounts it, saving its continuation/state.
+- The carrier thread becomes free to run another virtual thread, and when the blocking operation completes, the parked virtual thread is remounted to a carrier to resume.
 
-This continuation-based design is why virtual threads can scale to such large numbers.[3][5]
+This continuation-based design is why virtual threads can scale to such large numbers. 
 
 
 
@@ -150,13 +150,13 @@ When to use and when to avoid
 
 Use virtual threads for:
 
-- Thread-per-request server architectures (HTTP, gRPC, etc.) that are mostly I/O-bound.[4][6]
-- JDBC/database calls, HTTP clients, message broker clients – essentially any blocking network I/O.[8][4]
+- Thread-per-request server architectures (HTTP, gRPC, etc.) that are mostly I/O-bound.[
+- JDBC/database calls, HTTP clients, message broker clients – essentially any blocking network I/O. 
 
 Avoid or be careful with:
 
-- Very CPU-heavy tasks – virtual threads do not increase CPU capacity; you still need limited thread pools and parallelism control.[4][9]
-- Libraries that use their own aggressive pooling or busy-wait loops; they might not benefit and can still hog carrier threads.[6][8]
+- Very CPU-heavy tasks – virtual threads do not increase CPU capacity; you still need limited thread pools and parallelism control.
+- Libraries that use their own aggressive pooling or busy-wait loops; they might not benefit and can still hog carrier threads.
 
 
 
@@ -164,18 +164,8 @@ Migrating typical backend code
 
 A common migration for a Spring-style or Java EE-style app:
 
-- Before: a bounded `ThreadPoolExecutor` with 200–500 platform threads serving all HTTP requests.[4][6]
-- After: allow the container (e.g., Tomcat, Jetty, etc.) to run request handling code on virtual threads, gaining much higher concurrency without changing controller code from blocking to reactive.[7][6]
+- Before: a bounded `ThreadPoolExecutor` with 200–500 platform threads serving all HTTP requests.
+- After: allow the container (e.g., Tomcat, Jetty, etc.) to run request handling code on virtual threads, gaining much higher concurrency without changing controller code from blocking to reactive.
 
 If you share a small sample of your current concurrency code (e.g., how you define your `ExecutorService` in your backend), a virtual-thread-based rewrite can be shown in the same style.
-
-[1](https://evanzhao119.github.io/java/2025/09/09/java-21-virtual-threads-explained-project-loom.html)
-[2](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html)
-[3](https://www.javacodegeeks.com/2025/12/project-looms-virtual-threads-rethinking-concurrency-in-java.html)
-[4](https://toolshelf.tech/blog/java-virtual-threads-concurrency-guide/)
-[5](https://www.theserverside.com/tip/A-primer-on-Java-21-virtual-threads-with-examples)
-[6](https://netflixtechblog.com/java-21-virtual-threads-dude-wheres-my-lock-3052540e231d)
-[7](https://kscodes.com/java-21/introduction-to-virtual-threads-in-java-21/)
-[8](https://www.linkedin.com/pulse/understanding-virtual-threads-java-21-comprehensive-guide-santana-ytgbf)
-[9](https://www.geeksforgeeks.org/java/virtual-threads-in-java/)
-[10](https://www.youtube.com/watch?v=1HSdq9zvym4)
+ 

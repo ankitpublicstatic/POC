@@ -2,6 +2,8 @@ package com.ankit.poc.thread;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class VirtualThread {
   public static void main(String[] args) throws InterruptedException {
@@ -40,5 +42,22 @@ public class VirtualThread {
       thread.join();
     }
     System.out.println("All virtual thread tasks completed.");
+  }
+
+  public void virtualThreadExecutorService() {
+    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (int i = 0; i < 100; i++) {
+        int taskNumber = i;
+        executorService.submit(() -> {
+          System.out
+              .println("Task " + taskNumber + " running in " + Thread.currentThread().getName());
+          try {
+            Thread.sleep(500);// pretend blocking I/O
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+          }
+        });
+      }
+    } // try-with-resources calls shutdown() and waits for tasks
   }
 }
