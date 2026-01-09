@@ -1,0 +1,181 @@
+Virtual threads in Java 21 are lightweight threads managed by the JVM that let you create millions of concurrent threads with low memory and scheduling overhead, while still using the familiar `Thread` and blocking I/O style.
+
+Below is a deep but practical explanation tailored to backend-style workloads, with code examples.
+
+What are virtual threads?
+
+- Virtual threads are still `java.lang.Thread`, but they are implemented and scheduled by the JVM, not directly by the OS.
+- Many virtual threads (M) are multiplexed onto a much smaller pool of carrier (platform/OS) threads (N), an M:N model instead of the traditional 1:1 mapping.
+
+- When a virtual thread blocks on I/O (`Socket`, JDBC, `sleep`, etc.), the JVM unmounts it from the carrier thread and reuses that carrier thread for other virtual threads.
+
+Effectively, you get “thread-per-request” style code without the classic 1:1 OS-thread scaling problems.
+
+Why were they introduced?
+
+Traditional platform threads are heavy:
+
+- Each OS thread has a large stack (often MBs), and context switching between many threads is expensive.
+- Blocking I/O means a blocked thread occupies an OS thread for the entire wait time, which limits concurrency in high-throughput servers.
+
+Virtual threads solve this by:
+
+- Making thread creation cheap enough to create hundreds of thousands or millions of threads in a single JVM.
+- Allowing blocking-style code that scales similarly to non-blocking/reactive models in terms of I/O concurrency.
+
+Core characteristics
+
+- Same API: You still use `Thread`, `Runnable`, `ExecutorService`, etc.; no new “reactive-style” APIs are required.
+- Lightweight: Small stacks and user-mode scheduling allow huge numbers of concurrent tasks.
+- Best for I/O-bound tasks: They shine when your threads spend a lot of time waiting on network, disk, database, or sleeping.[9][4]
+
+They are not a magic speedup for CPU-heavy work; compute-bound tasks still need proper pooling, throttling, and parallelism design.[4][9]
+
+Creating virtual threads (basic example)
+
+1. Using `Thread.ofVirtual()`
+
+```java
+public class VirtualThreadDemo {
+
+    public static void main(String[] args) throws InterruptedException {
+        Thread vThread = Thread
+                .ofVirtual()
+                .name("my-virtual-thread")
+                .start(() -> {
+                    System.out.println("Running in: " + Thread.currentThread());
+                    try {
+                        Thread.sleep(1000); // blocking call
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+
+        vThread.join(); // wait for completion
+    }
+}
+```
+
+- `Thread.ofVirtual()` returns a `Thread.Builder` specialized for virtual threads.[9]
+- `start(...)` creates and starts a virtual thread; `join()` works the same as with platform threads.[9]
+
+
+
+Creating many virtual threads (scaling demo)
+
+2. Millions of virtual threads vs platform threads
+
+```java
+public class ManyVirtualThreads {
+
+    public static void main(String[] args) throws InterruptedException {
+        int taskCount = 100_000; // can go higher in practice
+
+        List<Thread> threads = new ArrayList<>(taskCount);
+
+        for (int i = 0; i < taskCount; i++) {
+            int id = i;
+            Thread t = Thread.ofVirtual().start(() -> {
+                // Simulate blocking I/O
+                try {
+                    Thread.sleep(1000);
+                    // In real code: call DB, HTTP service, etc.
+                    // e.g. httpClient.send(request, BodyHandlers.ofString());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                // Optionally log:
+                // System.out.println("Task " + id + " done on " + Thread.currentThread());
+            });
+            threads.add(t);
+        }
+
+        for (Thread t : threads) {
+            t.join();
+        }
+
+        System.out.println("All virtual-thread tasks completed");
+    }
+}
+```
+
+- With platform threads, attempting tens or hundreds of thousands of threads would quickly exhaust memory or hit OS limits.
+- With virtual threads, this pattern is feasible because blocked virtual threads are simply parked in JVM data structures rather than occupying OS threads.
+
+Using executors with virtual threads
+
+The most idiomatic way in Java 21 is `Executors.newVirtualThreadPerTaskExecutor()`.
+
+```java
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public class VirtualThreadExecutorExample {
+
+    public static void main(String[] args) {
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < 1000; i++) {
+                int taskNumber = i;
+                executor.submit(() -> {
+                    System.out.println("Task " + taskNumber
+                            + " running in " + Thread.currentThread());
+                    try {
+                        Thread.sleep(500); // pretend blocking I/O
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            }
+        } // try-with-resources calls shutdown() and waits for tasks
+    }
+}
+```
+
+- `newVirtualThreadPerTaskExecutor()` creates an executor that spawns a new virtual thread for each submitted task.[8]
+- The carrier threads are managed internally, typically with a `ForkJoinPool`, and reused for many virtual tasks.[6][7]
+
+
+
+How they work internally (conceptual)
+
+- When a virtual thread is running, it is “mounted” on a carrier (platform) thread.[6][7]
+- When the virtual thread blocks on a known blocking point (e.g., `java.net`, `java.io`, `java.nio.channels` configured in blocking mode, `Thread.sleep`), the JVM unmounts it, saving its continuation/state.[1][7]
+- The carrier thread becomes free to run another virtual thread, and when the blocking operation completes, the parked virtual thread is remounted to a carrier to resume.[3][7]
+
+This continuation-based design is why virtual threads can scale to such large numbers.[3][5]
+
+
+
+When to use and when to avoid
+
+Use virtual threads for:
+
+- Thread-per-request server architectures (HTTP, gRPC, etc.) that are mostly I/O-bound.[4][6]
+- JDBC/database calls, HTTP clients, message broker clients – essentially any blocking network I/O.[8][4]
+
+Avoid or be careful with:
+
+- Very CPU-heavy tasks – virtual threads do not increase CPU capacity; you still need limited thread pools and parallelism control.[4][9]
+- Libraries that use their own aggressive pooling or busy-wait loops; they might not benefit and can still hog carrier threads.[6][8]
+
+
+
+Migrating typical backend code
+
+A common migration for a Spring-style or Java EE-style app:
+
+- Before: a bounded `ThreadPoolExecutor` with 200–500 platform threads serving all HTTP requests.[4][6]
+- After: allow the container (e.g., Tomcat, Jetty, etc.) to run request handling code on virtual threads, gaining much higher concurrency without changing controller code from blocking to reactive.[7][6]
+
+If you share a small sample of your current concurrency code (e.g., how you define your `ExecutorService` in your backend), a virtual-thread-based rewrite can be shown in the same style.
+
+[1](https://evanzhao119.github.io/java/2025/09/09/java-21-virtual-threads-explained-project-loom.html)
+[2](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html)
+[3](https://www.javacodegeeks.com/2025/12/project-looms-virtual-threads-rethinking-concurrency-in-java.html)
+[4](https://toolshelf.tech/blog/java-virtual-threads-concurrency-guide/)
+[5](https://www.theserverside.com/tip/A-primer-on-Java-21-virtual-threads-with-examples)
+[6](https://netflixtechblog.com/java-21-virtual-threads-dude-wheres-my-lock-3052540e231d)
+[7](https://kscodes.com/java-21/introduction-to-virtual-threads-in-java-21/)
+[8](https://www.linkedin.com/pulse/understanding-virtual-threads-java-21-comprehensive-guide-santana-ytgbf)
+[9](https://www.geeksforgeeks.org/java/virtual-threads-in-java/)
+[10](https://www.youtube.com/watch?v=1HSdq9zvym4)

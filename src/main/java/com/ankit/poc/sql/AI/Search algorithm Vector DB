@@ -1,0 +1,21 @@
+Method	Speed (Query Latency)	Accuracy (Recall)	Memory Usage
+HNSW	Highest	Highest	Highest
+IVFPQ (Hybrid)	High	High (with re‑ranking)	Lowest Far
+IVF (Standalone)	Medium	Medium	Low
+Trees (e.g., KD‑Tree)	Low in high dimensions	Low	Medium
+
+
+
+Database / Library	Category	Key Feature / Philosophy	Primary Indexing Technology
+
+Milvus -> Native	 -> Open‑source, highly scalable, focused on MLOps with decoupled storage and compute	Flexible: -> HNSW, IVF, PQ and others
+
+Pinecone -> Native -> 	Managed SaaS service emphasizing ease of use and performance -> HNSW (and related graph‑based ANN)
+
+Weaviate -> 	 Native -> 	Open‑source, GraphQL API, connects vectors in a knowledge‑graph‑style data model -> 	HNSW
+Qdrant -> 	Native -> 	Open‑source, Rust‑based, performance‑focused with advanced filtering capabilities -> 	HNSW with custom optimizations
+PostgreSQL (pgvector) -> 	Integrated -> 	Keeps structured data and vectors together in the same relational database	 -> IVF‑Flat and HNSW (via pgvector)
+
+Elasticsearch -> 	Integrated -> 	Combines full‑text keyword search with semantic vector search in one engine -> 	HNSW‑style ANN for dense vectors
+Redis -> 	Integrated -> 	In‑memory data store combining vectors with other Redis data structures and caching -> 	HNSW‑like vector indexes
+Faiss (by Meta) -> 	Library	C++/Python library that provides core ANN algorithms and powers many other systems -> 	IVF, IVFPQ, HNSW, flat, etc.

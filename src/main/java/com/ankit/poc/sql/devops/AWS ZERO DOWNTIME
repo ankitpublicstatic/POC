@@ -5,7 +5,7 @@ Below is a production-grade, zero-downtime deployment strategy for a Spring Boot
 High-Level Architecture (Zero Downtime)
 
 ```
-		Git (GitHub/GitLab)
+		Git (GitHub/GitLab/Jenkins)
 		   |
 		   |  CI (Build, Test, Image)
 		   v
@@ -13,13 +13,14 @@ High-Level Architecture (Zero Downtime)
 		   |
 		   |  CD
 		   v
-		ECS / EKS (Blue–Green or Rolling)
+		Elastic Container Service / Elastic Kubernetes Service (Blue–Green or Rolling)
 		   |
-		ALB (Health Checks + Traffic Shifting)
+		Application Load Balancer (Health Checks + Traffic Shifting)
 		   |
-		Users
+		Users/Client
 ```
-
+ECS stands for Elastic Container Service in AWS.
+Elastic Container Registry (ECR) 
 ---
 
  Deployment Strategies (Zero Downtime)
@@ -32,6 +33,7 @@ Best for strict zero downtime
 
    Blue = currently serving traffic
    Green = new version
+   
  Deploy new version to Green
  Run health checks
  Switch traffic at ALB level
@@ -49,12 +51,12 @@ Best for strict zero downtime
 
 | Layer              | Service                                           |
 | ------------------ | ------------------------------------------------- |
-| Compute            | ECS Fargate or EKS                        |
-| Load Balancer      | Application Load Balancer (ALB)               |
-| Container Registry | Amazon ECR                                    |
-| CI/CD              | GitHub Actions / GitLab CI / AWS CodePipeline |
-| Secrets            | AWS Secrets Manager / SSM                     |
-| Monitoring         | CloudWatch + Prometheus + Grafana             |
+| Compute            | ECS Fargate or EKS                                |
+| Load Balancer      | Application Load Balancer (ALB)               		|
+| Container Registry | Amazon Elastic Container Registry             		|
+| CI/CD              | GitHub Actions / GitLab CI / AWS CodePipeline 	/ Jenkins	|
+| Secrets            | AWS Secrets Manager / SSM                     		|
+| Monitoring         | CloudWatch + Prometheus + Grafana             		|
 
 👉 ECS Fargate is simpler and preferred unless you need Kubernetes features.
 
@@ -264,6 +266,37 @@ I can also:
 
 Just tell me 👍
 
+Explain canary vs blue-green tradeoffs:-
+ 
+Canary and blue-green deployments are deployment strategies that minimize risk during software releases by controlling how new versions reach users.
+
+Blue-green switches all traffic instantly between two full environments, while canary gradually routes a small portion of traffic to the new version first.[2][5]
+
+Key Tradeoffs
+Blue-green offers zero-downtime deploys and instant rollback by flipping a router switch, but requires double the infrastructure and exposes all users at once if issues slip through. Canary reduces blast radius by testing with subsets of users and saves resources by sharing infrastructure, though it demands sophisticated traffic splitting, monitoring, and slower rollouts.[3][5][2]
+
+## Comparison Table
+
+| Aspect              | Blue-Green                          | Canary                              |
+|---------------------|-------------------------------------|-------------------------------------|
+| Rollout Speed      | Instant full switch [5]       | Gradual over time [5]         |
+| Resource Use       | High (two full envs) [3]      | Lower (shared infra) [3]      |
+| Risk Exposure      | All users at switch [2]       | Limited initial users [2]     |
+| Rollback Ease      | Immediate switch back [5]     | Gradual traffic reduction [5] |
+| Complexity         | Simpler setup [3]             | Needs monitoring/routing [3]  |
+
+Choose blue-green for critical apps needing fast recovery; opt for canary when budget limits resources or real-user feedback guides iterations.[2]
+
+[1](https://circleci.com/blog/canary-vs-blue-green-downtime/)
+[2](https://octopus.com/devops/software-deployments/blue-green-vs-canary-deployments/)
+[3](https://codefresh.io/learn/software-deployment/blue-green-deployment-vs-canary-5-key-differences-and-how-to-choose/)
+[4](https://stackoverflow.com/questions/23746038/canary-release-strategy-vs-blue-green)
+[5](https://www.getunleash.io/blog/blue-green-deployment-vs-canary-release)
+[6](https://www.reddit.com/r/devops/comments/1m777h8/scratching_my_head_trying_to_differentiate/)
+[7](https://www.xenonstack.com/blog/canary-vs-blue-green-deployment)
+[8](https://www.reddit.com/r/aws/comments/1bl0cgl/canary_release_vs_greenblue_deployment/)
+[9](https://www.harness.io/blog/blue-green-canary-deployment-strategies)
+[10](https://www.microtica.com/blog/canary-deployment-vs-blue-green)
 
 Below is a production-ready Jenkins CI/CD pipeline for zero-downtime Spring Boot deployment on AWS (ECS + Blue-Green), with clear stages, best practices, and interview-level depth.
 
