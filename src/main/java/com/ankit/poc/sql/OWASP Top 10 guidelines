@@ -1,9 +1,9 @@
-Here’s a **deep-dive explanation of the OWASP Top 10** — the **most critical web application security risks** identified by the [Open Web Application Security Project (OWASP)](https://owasp.org/).
-These guidelines help developers, architects, and security teams **design, develop, and maintain secure software**.
+Here’s a deep-dive explanation of the OWASP Top 10 — the most critical web application security risks identified by the [Open Web Application Security Project (OWASP)](https://owasp.org/).
+These guidelines help developers, architects, and security teams design, develop, and maintain secure software.
 
 ---
 
-## 🧠 Overview: OWASP Top 10 (2021)
+🧠 Overview: OWASP Top 10 (2021)
 
 | Rank     | Category                                 | Core Risk                            | Example                                       |
 | -------- | ---------------------------------------- | ------------------------------------ | --------------------------------------------- |
@@ -20,20 +20,20 @@ These guidelines help developers, architects, and security teams **design, devel
 
 ---
 
-## 🔍 Deep Dive into Each OWASP Category
+🔍 Deep Dive into Each OWASP Category
 
-### **A01: Broken Access Control**
+A01: Broken Access Control
 
-* **Risk**: Users can act outside their intended permissions.
-* **Example**: `/api/users/123` accessible by a normal user instead of admin.
-* **Mitigation**:
+Risk: Users can act outside their intended permissions.
+Example: `/api/users/123` accessible by a normal user instead of admin.
+Mitigation:
 
-  * Enforce least privilege.
-  * Use server-side authorization checks.
-  * Disable URL parameter-based access control.
-  * Validate ownership in backend controllers.
+  Enforce least privilege.
+  Use server-side authorization checks.
+  Disable URL parameter-based access control.
+  Validate ownership in backend controllers.
 
-**Spring Boot Example:**
+Spring Boot Example:
 
 ```java
 @PreAuthorize("hasRole('ADMIN')")
@@ -45,18 +45,18 @@ public ResponseEntity<String> getAdminData() {
 
 ---
 
-### **A02: Cryptographic Failures (Previously: Sensitive Data Exposure)**
+A02: Cryptographic Failures (Previously: Sensitive Data Exposure)
 
-* **Risk**: Exposure of sensitive data (passwords, tokens, PII).
-* **Example**: Transmitting data over HTTP or storing unencrypted passwords.
-* **Mitigation**:
+Risk: Exposure of sensitive data (passwords, tokens, PII).
+Example: Transmitting data over HTTP or storing unencrypted passwords.
+Mitigation:
 
-  * Use HTTPS/TLS 1.3.
-  * Encrypt sensitive data at rest (AES-256).
-  * Never hardcode secrets in source code.
-  * Use strong hashing (e.g., bcrypt, Argon2).
+  Use HTTPS/TLS 1.3.
+  Encrypt sensitive data at rest (AES-256).
+  Never hardcode secrets in source code.
+  Use strong hashing (e.g., bcrypt, Argon2).
 
-**Example:**
+Example:
 
 ```java
 String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
@@ -64,48 +64,48 @@ String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
 
 ---
 
-### **A03: Injection**
+A03: Injection
 
-* **Risk**: Malicious input is executed as a command or query.
-* **Example**: `SELECT * FROM users WHERE name='admin' OR '1'='1'`
-* **Mitigation**:
+Risk: Malicious input is executed as a command or query.
+Example: `SELECT FROM users WHERE name='admin' OR '1'='1'`
+Mitigation:
 
-  * Use parameterized queries (PreparedStatement).
-  * Sanitize input and validate whitelist values.
-  * Avoid dynamic query concatenation.
+  Use parameterized queries (PreparedStatement).
+  Sanitize input and validate whitelist values.
+  Avoid dynamic query concatenation.
 
-**Example (Safe JDBC):**
+Example (Safe JDBC):
 
 ```java
-PreparedStatement ps = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
+PreparedStatement ps = conn.prepareStatement("SELECT FROM users WHERE id = ?");
 ps.setInt(1, userId);
 ```
 
 ---
 
-### **A04: Insecure Design**
+A04: Insecure Design
 
-* **Risk**: Poor security architecture or missing controls.
-* **Example**: Not implementing rate-limiting or validation on critical actions.
-* **Mitigation**:
+Risk: Poor security architecture or missing controls.
+Example: Not implementing rate-limiting or validation on critical actions.
+Mitigation:
 
-  * Perform **threat modeling** early in SDLC.
-  * Adopt **secure design patterns**.
-  * Apply **defense-in-depth** (multiple layers of protection).
+  Perform threat modeling early in SDLC.
+  Adopt secure design patterns.
+  Apply defense-in-depth (multiple layers of protection).
 
 ---
 
-### **A05: Security Misconfiguration**
+A05: Security Misconfiguration
 
-* **Risk**: Incorrect settings in server, app, or database.
-* **Example**: Stack traces exposed, unnecessary open ports, or default credentials.
-* **Mitigation**:
+Risk: Incorrect settings in server, app, or database.
+Example: Stack traces exposed, unnecessary open ports, or default credentials.
+Mitigation:
 
-  * Disable directory listings and default admin panels.
-  * Use automated hardening scripts.
-  * Ensure production has minimal privileges.
+  Disable directory listings and default admin panels.
+  Use automated hardening scripts.
+  Ensure production has minimal privileges.
 
-**Example (Spring Boot):**
+Example (Spring Boot):
 
 ```yaml
 server:
@@ -115,29 +115,29 @@ server:
 
 ---
 
-### **A06: Vulnerable & Outdated Components**
+A06: Vulnerable & Outdated Components
 
-* **Risk**: Using libraries or frameworks with known vulnerabilities.
-* **Example**: Using a vulnerable version of Log4j or Spring Framework.
-* **Mitigation**:
+Risk: Using libraries or frameworks with known vulnerabilities.
+Example: Using a vulnerable version of Log4j or Spring Framework.
+Mitigation:
 
-  * Use **dependency scanners** (e.g., OWASP Dependency-Check, Snyk).
-  * Regularly patch dependencies.
-  * Use SBOM (Software Bill of Materials).
+  Use dependency scanners (e.g., OWASP Dependency-Check, Snyk).
+  Regularly patch dependencies.
+  Use SBOM (Software Bill of Materials).
 
 ---
 
-### **A07: Identification & Authentication Failures**
+A07: Identification & Authentication Failures
 
-* **Risk**: Broken login mechanisms, weak session management.
-* **Example**: Session IDs exposed in URLs or predictable tokens.
-* **Mitigation**:
+Risk: Broken login mechanisms, weak session management.
+Example: Session IDs exposed in URLs or predictable tokens.
+Mitigation:
 
-  * Implement MFA (Multi-Factor Authentication).
-  * Use secure session cookies (`HttpOnly`, `Secure`).
-  * Limit failed login attempts.
+  Implement MFA (Multi-Factor Authentication).
+  Use secure session cookies (`HttpOnly`, `Secure`).
+  Limit failed login attempts.
 
-**Spring Security Example:**
+Spring Security Example:
 
 ```java
 http
@@ -151,17 +151,17 @@ http
 
 ---
 
-### **A08: Software & Data Integrity Failures**
+A08: Software & Data Integrity Failures
 
-* **Risk**: Using unverified code, libraries, or CI/CD pipelines.
-* **Example**: Compromised package from npm or Maven Central.
-* **Mitigation**:
+Risk: Using unverified code, libraries, or CI/CD pipelines.
+Example: Compromised package from npm or Maven Central.
+Mitigation:
 
-  * Verify code signatures and checksums.
-  * Use signed Docker images.
-  * Restrict write access to production pipelines.
+  Verify code signatures and checksums.
+  Use signed Docker images.
+  Restrict write access to production pipelines.
 
-**Example (GCP Cloud Build Verification):**
+Example (GCP Cloud Build Verification):
 
 ```yaml
 steps:
@@ -171,17 +171,17 @@ steps:
 
 ---
 
-### **A09: Security Logging & Monitoring Failures**
+A09: Security Logging & Monitoring Failures
 
-* **Risk**: Attacks go undetected due to missing logs or alerts.
-* **Example**: No logging for failed login attempts.
-* **Mitigation**:
+Risk: Attacks go undetected due to missing logs or alerts.
+Example: No logging for failed login attempts.
+Mitigation:
 
-  * Centralize logs (e.g., ELK Stack, CloudWatch, Stackdriver).
-  * Log sensitive operations, not sensitive data.
-  * Set up alert thresholds and anomaly detection.
+  Centralize logs (e.g., ELK Stack, CloudWatch, Stackdriver).
+  Log sensitive operations, not sensitive data.
+  Set up alert thresholds and anomaly detection.
 
-**Example:**
+Example:
 
 ```java
 logger.warn("Failed login attempt for user: {}", username);
@@ -189,17 +189,17 @@ logger.warn("Failed login attempt for user: {}", username);
 
 ---
 
-### **A10: Server-Side Request Forgery (SSRF)**
+A10: Server-Side Request Forgery (SSRF)
 
-* **Risk**: Attacker tricks the server into making requests to unintended destinations.
-* **Example**: Attacker sends a URL that causes the server to query internal endpoints.
-* **Mitigation**:
+Risk: Attacker tricks the server into making requests to unintended destinations.
+Example: Attacker sends a URL that causes the server to query internal endpoints.
+Mitigation:
 
-  * Validate and sanitize all URLs.
-  * Use allowlists for outbound connections.
-  * Disable HTTP redirections and local IP access.
+  Validate and sanitize all URLs.
+  Use allowlists for outbound connections.
+  Disable HTTP redirections and local IP access.
 
-**Example:**
+Example:
 
 ```java
 if (!allowedDomains.contains(new URL(requestUrl).getHost())) {
@@ -209,19 +209,19 @@ if (!allowedDomains.contains(new URL(requestUrl).getHost())) {
 
 ---
 
-## 🧰 Developer Best Practices
+🧰 Developer Best Practices
 
-1. **Secure Coding Standards** – Follow frameworks like *CERT Java Secure Coding*.
-2. **Static Analysis Tools** – SonarQube, OWASP Dependency Check.
-3. **Regular Penetration Testing** – Perform automated + manual pentests.
-4. **Security in CI/CD** – Integrate SAST, DAST, and vulnerability scans.
-5. **Shift Left Security** – Catch vulnerabilities early in the development lifecycle.
+1. Secure Coding Standards – Follow frameworks like *CERT Java Secure Coding*.
+2. Static Analysis Tools – SonarQube, OWASP Dependency Check.
+3. Regular Penetration Testing – Perform automated + manual pentests.
+4. Security in CI/CD – Integrate SAST, DAST, and vulnerability scans.
+5. Shift Left Security – Catch vulnerabilities early in the development lifecycle.
 
 ---
 
-## ✅ Summary Table (Quick Cheat Sheet)
+✅ Summary Table (Quick Cheat Sheet)
 
-| #   | Threat              | Key Controls                        |
+|  #  | Threat              | Key Controls                        |
 | --- | ------------------- | ----------------------------------- |
 | A01 | Access Control      | Role-based auth, policy enforcement |
 | A02 | Crypto Failures     | TLS, encryption, no plaintext       |
@@ -236,4 +236,4 @@ if (!allowedDomains.contains(new URL(requestUrl).getHost())) {
 
 ---
 
-Would you like me to generate a **Word (.docx)** or **PDF security guideline report** version of this (for compliance documentation or audit preparation)?
+Would you like me to generate a Word (.docx) or PDF security guideline report version of this (for compliance documentation or audit preparation)?

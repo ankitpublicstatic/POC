@@ -10,11 +10,11 @@ Let’s go in deep — tool by tool — with:
 
 ---
 
-## 🧪 1️⃣ Apache JMeter — Performance & Load Testing
+🧪 1️⃣ Apache JMeter — Performance & Load Testing
 
 ---
 
-### 💡 What It Is
+#💡 What It Is
 
 > JMeter is an open-source load testing tool for measuring the performance of APIs, microservices, web, and database systems.
 
@@ -22,7 +22,7 @@ It simulates multiple virtual users making requests to your application — help
 
 ---
 
-### ⚙️ How It Works
+#⚙️ How It Works
 
  Uses Thread Groups to simulate concurrent users.
  Sends requests (HTTP, JDBC, JMS, FTP, etc.).
@@ -31,7 +31,7 @@ It simulates multiple virtual users making requests to your application — help
 
 ---
 
-### 💻 Example: API Performance Test (HTTP Request)
+#💻 Example: API Performance Test (HTTP Request)
 
 1. Create a Test Plan (XML `.jmx` file)
 
@@ -58,7 +58,7 @@ This simulates 100 users hitting `/api/orders` 10 times each with a 30-second ra
 
 ---
 
-### ⚙️ Run Headless via Command Line (for CI/CD)
+#⚙️ Run Headless via Command Line (for CI/CD)
 
 ```bash
 jmeter -n -t test-plan.jmx -l result.jtl -e -o report
@@ -71,7 +71,7 @@ jmeter -n -t test-plan.jmx -l result.jtl -e -o report
 
 ---
 
-### ✅ In Jenkins Pipeline
+#✅ In Jenkins Pipeline
 
 ```groovy
 stage('Performance Test') {
@@ -86,18 +86,18 @@ stage('Performance Test') {
 
 ---
 
-## 🔒 2️⃣ Fortify SCA (Static Code Analyzer) — Static Security Scanning
+🔒 2️⃣ Fortify SCA (Static Code Analyzer) — Static Security Scanning
 
 ---
 
-### 💡 What It Is
+#💡 What It Is
 
 > HP Fortify scans source code for security vulnerabilities (before compilation or deployment).
 > It finds flaws like SQL injection, XSS, buffer overflows, insecure cryptography, etc.
 
 ---
 
-### ⚙️ How It Works
+#⚙️ How It Works
 
  Parses your Java/Python/JS code.
  Builds an abstract syntax tree (AST).
@@ -106,7 +106,7 @@ stage('Performance Test') {
 
 ---
 
-### 💻 Example: Running Fortify on a Maven Project
+#💻 Example: Running Fortify on a Maven Project
 
 Step 1: Clean and Translate Code
 
@@ -138,7 +138,7 @@ Step 3: View in Fortify Audit Workbench
 
 ---
 
-### ⚙️ Example Vulnerable Java Code
+#⚙️ Example Vulnerable Java Code
 
 ```java
 // ❌ Vulnerable code
@@ -151,7 +151,7 @@ Fortify will flag: SQL Injection (High Severity)
 
 ---
 
-### ✅ Fortify Maven Integration
+#✅ Fortify Maven Integration
 
 ```xml
 <plugin>
@@ -171,11 +171,11 @@ Fortify will flag: SQL Injection (High Severity)
 
 ---
 
-## 🧰 3️⃣ SonarQube — Code Quality, Maintainability & Security
+🧰 3️⃣ SonarQube — Code Quality, Maintainability & Security
 
 ---
 
-### 💡 What It Is
+#💡 What It Is
 
 > SonarQube is a continuous inspection platform that checks code quality, technical debt, and coding standards using static analysis.
 
@@ -183,7 +183,7 @@ It integrates into your CI/CD and enforces quality gates (minimum coverage, no c
 
 ---
 
-### ⚙️ How It Works
+#⚙️ How It Works
 
  Scans your source code and calculates metrics (complexity, duplication, coverage).
  Identifies bugs, vulnerabilities, code smells.
@@ -192,7 +192,7 @@ It integrates into your CI/CD and enforces quality gates (minimum coverage, no c
 
 ---
 
-### 💻 Example: Sonar Configuration in Maven (pom.xml)
+#💻 Example: Sonar Configuration in Maven (pom.xml)
 
 ```xml
 <plugin>
@@ -213,7 +213,7 @@ mvn clean verify sonar:sonar \
 
 ---
 
-### ✅ Example Output
+#✅ Example Output
 
  Bugs: 2
  Vulnerabilities: 1
@@ -223,7 +223,7 @@ mvn clean verify sonar:sonar \
 
 ---
 
-### ⚙️ Jenkins Integration (CI/CD)
+#⚙️ Jenkins Integration (CI/CD)
 
 ```groovy
 stage('Code Quality') {
@@ -237,18 +237,18 @@ stage('Code Quality') {
 
 ---
 
-## 🧬 4️⃣ Sonatype Nexus IQ — Dependency Vulnerability Management
+🧬 4️⃣ Sonatype Nexus IQ — Dependency Vulnerability Management
 
 ---
 
-### 💡 What It Is
+#💡 What It Is
 
 > Nexus IQ (by Sonatype) scans your third-party dependencies (JARs, npm, etc.) for known security vulnerabilities (CVE database).
 > It ensures no insecure libraries enter your project.
 
 ---
 
-### ⚙️ How It Works
+#⚙️ How It Works
 
  Scans dependencies in your Maven/Gradle project.
  Checks each library’s version against Sonatype CVE database.
@@ -256,7 +256,7 @@ stage('Code Quality') {
 
 ---
 
-### 💻 Example: Maven Integration
+#💻 Example: Maven Integration
 
 ```xml
 <plugin>
@@ -281,7 +281,7 @@ stage('Code Quality') {
 </plugin>
 ```
 
-### ⚙️ Command-line Scan
+#⚙️ Command-line Scan
 
 ```bash
 nexus-iq-cli -i secure-app -s https://nexus-iq.company.com -a username:password -t build target/.jar
@@ -298,7 +298,7 @@ Action: Upgrade to 3.2.2
 
 ---
 
-# 🔄 CI/CD Integration Summary
+🔄 CI/CD Integration Summary
 
 | Stage                      | Tool           | Purpose                    | Example Outcome         |
 | -------------------------- | -------------- | -------------------------- | ----------------------- |
@@ -310,7 +310,7 @@ Action: Upgrade to 3.2.2
 
 ---
 
-# 🚀 Example Jenkins CI/CD Pipeline Combining All
+🚀 Example Jenkins CI/CD Pipeline Combining All
 
 ```groovy
 pipeline {
@@ -342,11 +342,11 @@ pipeline {
 
 ---
 
-# 🧠 Summary
+🧠 Summary
 
-| Tool          | Category                  | Detects / Measures                     | Integration Point       |
-| ------------- | ------------------------- | -------------------------------------- | ----------------------- |
-| JMeter    | Performance               | Response time, throughput, concurrency | Post-deployment testing |
+| Tool          | Category                  | Detects / Measures                 | Integration Point       |
+| ------------- | ------------------------- | ---------------------------------- | ----------------------- |
+| JMeter    | Performance,load,Stress,Spikes| Response time, throughput, concurrency | Post-deployment testing |
 | Fortify   | Static Security           | Code vulnerabilities (OWASP/CWE)       | Build phase             |
 | SonarQube | Quality + Maintainability | Bugs, smells, coverage                 | Build/CI phase          |
 | NexusIQ   | Dependency Security       | Vulnerable libraries (CVEs)            | Build phase             |
