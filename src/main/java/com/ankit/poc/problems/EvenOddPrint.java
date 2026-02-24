@@ -31,6 +31,7 @@ public class EvenOddPrint {
   public static void main(String[] args) throws InterruptedException {
     CompletableFuture.runAsync(() -> EvenOddPrint.printNumber(oddIntPredicate));
     CompletableFuture.runAsync(() -> EvenOddPrint.printNumber(evenIntPredicate));
+    // CompletableFuture.
     Thread.sleep(1000);
   }
 }

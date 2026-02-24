@@ -1,0 +1,217 @@
+S - Single-responsibility Principle
+O - Open-closed Principle
+L - Liskov Substitution Principle
+I - Interface Segregation Principle
+D - Dependency Inversion Principle
+
+SOLID is a set of five object-oriented design principles that help you write software that is:
+
+Easy to understand
+Easy to maintain
+Flexible to change
+Testable and scalable
+
+They were popularized by Robert C. Martin (Uncle Bob).
+
+Let’s break them down simply with examples.
+
+---
+
+# ✅ S — Single Responsibility Principle (SRP)
+
+> A class should have only one reason to change.
+
+Meaning: one class = one job.
+
+### ❌ Bad
+
+```java
+class UserService {
+    void saveUser() { /save to DB */ }
+    void sendEmail() { /send email */ }
+}
+```
+
+This class handles DB + email → two responsibilities.
+
+### ✅ Good
+
+```java
+class UserRepository {
+    void saveUser() {}
+}
+
+class EmailService {
+    void sendEmail() {}
+}
+```
+
+👉 If email logic changes, DB code is safe.
+
+---
+
+# ✅ O — Open/Closed Principle (OCP)
+
+> Open for extension, closed for modification.
+
+You should add new behavior without changing old code.
+
+### ❌ Bad
+
+```java
+class Discount {
+    double calculate(String type) {
+        if (type.equals("NEW")) return 10;
+        if (type.equals("VIP")) return 20;
+        return 0;
+    }
+}
+```
+
+Every new type = modify code.
+
+### ✅ Good
+
+```java
+interface Discount {
+    double calculate();
+}
+
+class NewCustomerDiscount implements Discount {
+    public double calculate() { return 10; }
+}
+
+class VipDiscount implements Discount {
+    public double calculate() { return 20; }
+}
+```
+
+👉 Add new discounts without touching old classes.
+
+---
+
+# ✅ L — Liskov Substitution Principle (LSP)
+
+> Subclasses must be replaceable for their base classes.
+
+If class B extends class A, B should behave like A.
+
+### ❌ Bad
+
+```java
+class Bird {
+    void fly() {}
+}
+
+class Ostrich extends Bird {
+    void fly() { throw new UnsupportedOperationException(); }
+}
+```
+
+Ostrich can’t fly → breaks expectations.
+
+### ✅ Good
+
+```java
+class Bird {}
+
+interface FlyingBird {
+    void fly();
+}
+```
+
+👉 Only flying birds implement fly.
+
+---
+
+# ✅ I — Interface Segregation Principle (ISP)
+
+> Don’t force classes to implement methods they don’t use.
+
+### ❌ Bad
+
+```java
+interface Worker {
+    void work();
+    void eat();
+}
+```
+
+Robot doesn’t eat!
+
+### ✅ Good
+
+```java
+interface Workable {
+    void work();
+}
+
+interface Eatable {
+    void eat();
+}
+```
+
+👉 Classes implement only what they need.
+
+---
+
+# ✅ D — Dependency Inversion Principle (DIP)
+
+> Depend on abstractions, not concrete classes.
+
+### ❌ Bad
+
+```java
+class OrderService {
+    MySQLDatabase db = new MySQLDatabase();
+}
+```
+
+Hard-coded dependency.
+
+### ✅ Good
+
+```java
+interface Database {
+    void save();
+}
+
+class OrderService {
+    Database db;
+    OrderService(Database db) {
+        this.db = db;
+    }
+}
+```
+
+👉 You can switch DB easily (MySQL → MongoDB).
+
+---
+
+# 🚀 Why SOLID Matters (Real-World Impact)
+
+Using SOLID helps you:
+
+✔ Reduce bugs
+✔ Improve code readability
+✔ Make testing easier
+✔ Support scalability
+✔ Enable team collaboration
+✔ Refactor safely
+
+---
+
+# 🎯 Interview-Ready Summary
+
+> SOLID is a set of five design principles that make object-oriented code maintainable, scalable, and flexible. They promote loose coupling, high cohesion, and abstraction.
+
+---
+
+If you want, I can next:
+
+✅ Show real-world Spring Boot examples
+✅ Show SOLID violations in production code
+✅ Give interview questions + answers on SOLID
+✅ Provide Node.js/Express SOLID examples
+
+Just tell me 👍

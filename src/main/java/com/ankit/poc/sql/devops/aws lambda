@@ -1,3 +1,31 @@
+AWS Lambda has several key limitations that can impact its suitability for certain workloads. These include constraints on execution time, memory, deployment size, and concurrency.
+
+Execution Duration
+Functions have a maximum runtime of 15 minutes (900 seconds), making them unsuitable for long-running tasks like video processing or large data jobs.
+
+Memory and CPU
+Memory allocation ranges from 128 MB to 10,240 MB, with CPU power scaling automatically based on memory; higher memory provides more vCPU but caps at just under 3 GB RAM total.
+​
+​
+
+Deployment Size
+Zipped deployment packages are limited to 50 MB (hard limit).
+
+Unzipped code and layers total 250 MB; container images up to 10 GB but increase cold start times.
+
+Concurrency Limits
+Default is 1,000 concurrent executions per region (soft limit, increasable via support); each environment handles up to 10 requests per second.
+
+Storage and Payload
+Ephemeral storage (/tmp) maxes at 512 MB to 10 GB (configurable, soft limit), and invocation payloads are capped at 6 MB input/output.
+
+Other Constraints
+Cold starts delay initial invocations, especially for larger packages or languages like Java.
+
+No native GPU support, limited debugging (logs via CloudWatch, no SSH), and AWS-specific lock-in reduce portability.
+
+Stateless design requires external storage for persistence.
+
 Excellent question 💡 — “**Cold Start**” is one of the most important (and often misunderstood) concepts in **AWS Lambda**, especially for **Java developers**.
 Let’s go into it step-by-step and really understand it in **depth + with real examples** 👇
 

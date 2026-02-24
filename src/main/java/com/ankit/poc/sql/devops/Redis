@@ -1,0 +1,502 @@
+Let’s go deep on Redis and how to use it in a Java Spring Boot application, from fundamentals to real-world patterns and production-grade code.
+
+---
+
+# 1️⃣ What is Redis (Deep Dive)
+
+Redis (Remote Dictionary Server) is an in-memory, key–value data store used as:
+
+ Cache
+ Database
+ Message broker
+ Streaming engine
+
+It is:
+
+ ⚡ In-memory → extremely fast (microseconds latency)
+ 💾 Optionally persistent
+ 🔁 Single-threaded core (but highly optimized)
+ 🌐 Networked (TCP-based client-server)
+
+---
+
+## 1.1 Why Redis is Fast
+
+### ✅ In-memory storage
+
+No disk seek time like RDBMS.
+
+### ✅ Efficient data structures
+
+Specialized implementations for strings, hashes, lists, sets, etc.
+
+### ✅ Event loop model
+
+Single-threaded command execution avoids locks and context switching.
+
+### ✅ Pipelining
+
+Batch multiple commands in one round trip.
+
+---
+
+# 2️⃣ Redis Core Data Structures (Very Important)
+
+## 2.1 String
+
+Most basic type.
+
+```bash
+SET user:1:name "Ankit"
+GET user:1:name
+```
+
+Used for:
+
+ Caching JSON
+ Counters
+ Session tokens
+
+---
+
+## 2.2 Hash
+
+Like a Java `Map<String,String>`.
+
+```bash
+HSET user:1 name "Ankit" age "25"
+HGET user:1 name
+```
+
+Best for:
+
+ Objects
+ User profiles
+
+---
+
+## 2.3 List
+
+Ordered collection.
+
+```bash
+LPUSH tasks "task1"
+RPUSH tasks "task2"
+```
+
+Used for:
+
+ Queues
+ Activity feeds
+
+---
+
+## 2.4 Set
+
+Unique unordered values.
+
+```bash
+SADD tags "java" "redis"
+```
+
+Used for:
+
+ Unique items
+ Recommendations
+
+---
+
+## 2.5 Sorted Set (ZSET)
+
+Ordered by score.
+
+```bash
+ZADD leaderboard 100 "ankit"
+```
+
+Used for:
+
+ Leaderboards
+ Ranking systems
+
+---
+
+## 2.6 Pub/Sub
+
+Messaging system.
+
+```bash
+PUBLISH news "Hello"
+SUBSCRIBE news
+```
+
+Used for:
+
+ Real-time notifications
+ Chat systems
+
+---
+
+# 3️⃣ Redis Persistence
+
+Redis is in-memory but supports persistence.
+
+## 3.1 RDB (Snapshotting)
+
+ Saves dataset at intervals
+ Fast recovery
+ Risk of data loss between snapshots
+
+---
+
+## 3.2 AOF (Append Only File)
+
+ Logs every write
+ Safer
+ Larger file size
+
+---
+
+# 4️⃣ Redis Use Cases in Real Apps
+
+✅ Caching DB queries
+✅ Session storage
+✅ Rate limiting
+✅ Distributed locks
+✅ Real-time analytics
+✅ Message queues
+✅ Leaderboards
+✅ Microservices communication
+
+---
+
+# 5️⃣ Redis in Spring Boot (Implementation)
+
+---
+
+## 5.1 Add Dependencies
+
+### Maven
+
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-data-redis</artifactId>
+</dependency>
+
+<dependency>
+  <groupId>com.fasterxml.jackson.core</groupId>
+  <artifactId>jackson-databind</artifactId>
+</dependency>
+```
+
+---
+
+## 5.2 Configuration
+
+### application.yml
+
+```yaml
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    timeout: 60000
+```
+
+---
+
+## 5.3 Redis Configuration Class
+
+```java
+@Configuration
+@EnableCaching
+public class RedisConfig {
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(
+            RedisConnectionFactory factory) {
+
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+
+        Jackson2JsonRedisSerializer<Object> serializer =
+                new Jackson2JsonRedisSerializer<>(Object.class);
+
+        template.setDefaultSerializer(serializer);
+        template.afterPropertiesSet();
+
+        return template;
+    }
+}
+```
+
+---
+
+# 6️⃣ Basic CRUD with RedisTemplate
+
+---
+
+## 6.1 Model
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class User implements Serializable {
+    private Long id;
+    private String name;
+    private int age;
+}
+```
+
+---
+
+## 6.2 Service Layer
+
+```java
+@Service
+public class UserRedisService {
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;
+
+    public void saveUser(User user) {
+        redisTemplate.opsForValue()
+                     .set("user:" + user.getId(), user);
+    }
+
+    public User getUser(Long id) {
+        return (User) redisTemplate
+                .opsForValue()
+                .get("user:" + id);
+    }
+
+    public void deleteUser(Long id) {
+        redisTemplate.delete("user:" + id);
+    }
+}
+```
+
+---
+
+# 7️⃣ Caching with Spring Cache Abstraction
+
+---
+
+## 7.1 Enable Caching
+
+```java
+@SpringBootApplication
+@EnableCaching
+public class App {}
+```
+
+---
+
+## 7.2 Service Example
+
+```java
+@Service
+public class UserService {
+
+    @Cacheable(value = "users", key = "#id")
+    public User getUserFromDB(Long id) {
+        simulateSlowDB();
+        return new User(id, "Ankit", 25);
+    }
+
+    @CacheEvict(value = "users", key = "#id")
+    public void updateUser(Long id) {
+        // update DB
+    }
+
+    private void simulateSlowDB() {
+        try { Thread.sleep(3000); }
+        catch (Exception e) {}
+    }
+}
+```
+
+### First call → slow
+
+### Next calls → instant from Redis
+
+---
+
+# 8️⃣ TTL (Time-To-Live)
+
+```java
+redisTemplate.opsForValue()
+    .set("otp:123", "4567", 5, TimeUnit.MINUTES);
+```
+
+Great for:
+
+ OTPs
+ Tokens
+ Temporary cache
+
+---
+
+# 9️⃣ Distributed Lock (Important in Microservices)
+
+```java
+Boolean locked = redisTemplate.opsForValue()
+    .setIfAbsent("lock:order", "1", 10, TimeUnit.SECONDS);
+
+if(Boolean.TRUE.equals(locked)) {
+    try {
+        // critical section
+    } finally {
+        redisTemplate.delete("lock:order");
+    }
+}
+```
+
+Prevents:
+
+ Double payments
+ Duplicate processing
+
+---
+
+# 🔟 Redis Pub/Sub in Spring Boot
+
+---
+
+## Publisher
+
+```java
+@Autowired
+private RedisTemplate<String, Object> redisTemplate;
+
+public void publish() {
+    redisTemplate.convertAndSend("chat", "Hello World");
+}
+```
+
+---
+
+## Subscriber
+
+```java
+@Component
+public class RedisSubscriber 
+        implements MessageListener {
+
+    @Override
+    public void onMessage(
+        Message message, byte[] pattern) {
+
+        System.out.println("Received: " 
+             + new String(message.getBody()));
+    }
+}
+```
+
+---
+
+# 1️⃣1️⃣ Best Practices (Production Level)
+
+---
+
+## ✅ Key Naming Convention
+
+```
+user:1001
+session:token123
+order:2025:1001
+```
+
+---
+
+## ✅ Avoid Huge Keys
+
+Bad:
+
+```
+all_users_data
+```
+
+Good:
+
+```
+user:1
+user:2
+```
+
+---
+
+## ✅ Use TTL wherever possible
+
+Prevents memory bloat.
+
+---
+
+## ✅ Monitor Memory
+
+```
+INFO MEMORY
+```
+
+---
+
+## ✅ Use Connection Pooling
+
+Handled automatically by Lettuce.
+
+---
+
+# 1️⃣2️⃣ Redis vs Database
+
+| Redis               | RDBMS           |
+| ------------------- | --------------- |
+| In-memory           | Disk-based      |
+| Microsecond latency | Milliseconds    |
+| Key-value           | Relational      |
+| Cache               | Source of truth |
+
+---
+
+# 1️⃣3️⃣ Real Architecture Example
+
+```
+Client → Spring Boot → Redis → Database
+```
+
+Flow:
+
+1. Check Redis
+2. If miss → DB
+3. Store in Redis
+4. Return response
+
+This reduces DB load by 80–95%.
+
+---
+
+# 🚀 If You Want Next-Level Topics
+
+I can explain:
+
+ Redis Cluster & Sharding
+ Redis Sentinel
+ Lua scripting
+ Streams (Kafka alternative)
+ Redisson advanced features
+ High-availability production setups
+ Multi-level caching (Caffeine + Redis)
+ Rate limiting design
+ System design using Redis
+
+---
+
+If you want, I can next give:
+
+✅ Production-ready project structure
+✅ Interview-level questions on Redis
+✅ System design using Redis
+✅ Advanced Redis patterns used in FAANG
+
+Just tell me 👍

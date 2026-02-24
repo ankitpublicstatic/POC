@@ -1,15 +1,15 @@
-This confusion is **very common** and very valid.
-Let’s **slow down and build the mental model properly**, step by step, **without buzzwords**.
+This confusion is very common and very valid.
+Let’s slow down and build the mental model properly, step by step, without buzzwords.
 
 ---
 
 # 1️⃣ First: What is a Kafka “Controller” in SIMPLE terms
 
-> **Kafka Controller is just a ROLE played by ONE broker at a time.**
+> Kafka Controller is just a ROLE played by ONE broker at a time.
 
-⚠️ It is **NOT a separate service**
-⚠️ It is **NOT ZooKeeper**
-⚠️ It is **NOT KRaft itself**
+⚠️ It is NOT a separate service
+⚠️ It is NOT ZooKeeper
+⚠️ It is NOT KRaft itself
 
 Think:
 
@@ -18,24 +18,24 @@ Kafka Cluster = Many Brokers
 One Broker = "Controller"
 ```
 
-📌 **Controller = Leader among brokers for cluster management**
+📌 Controller = Leader among brokers for cluster management
 
 ---
 
 # 2️⃣ What does the Kafka Controller actually DO?
 
-The controller is responsible for **cluster-wide decisions**, not message processing.
+The controller is responsible for cluster-wide decisions, not message processing.
 
 ### Controller responsibilities
 
-✔ Decide **which broker is leader for each partition**
-✔ Detect **broker failures**
-✔ Trigger **leader election**
-✔ Maintain **partition → broker mapping**
-✔ Maintain **ISR (In-Sync Replicas)**
+✔ Decide which broker is leader for each partition
+✔ Detect broker failures
+✔ Trigger leader election
+✔ Maintain partition → broker mapping
+✔ Maintain ISR (In-Sync Replicas)
 ✔ Push metadata updates to brokers
 
-📌 Producers/Consumers **never talk to the controller directly**
+📌 Producers/Consumers never talk to the controller directly
 
 ---
 
@@ -47,7 +47,7 @@ Without a controller:
 ❌ Who reacts when a broker dies?
 ❌ Who updates metadata consistently?
 
-👉 You need **one authority** to avoid split-brain.
+👉 You need one authority to avoid split-brain.
 
 ---
 
@@ -61,7 +61,7 @@ This is the KEY confusion point.
 
 ### Who elects the controller?
 
-➡️ **ZooKeeper**
+➡️ ZooKeeper
 
 ### How it worked
 
@@ -80,18 +80,18 @@ ZooKeeper elects ONE broker as Controller
 
 ✔ The elected broker ACTS as Controller
 
-📌 ZooKeeper **does NOT manage Kafka**
-📌 ZooKeeper **only coordinates brokers**
+📌 ZooKeeper does NOT manage Kafka
+📌 ZooKeeper only coordinates brokers
 
 ---
 
 ## NEW Kafka (KRaft-based)
 
-> **KRaft replaces ZooKeeper**
+> KRaft replaces ZooKeeper
 
 ### Who elects the controller now?
 
-➡️ **Kafka itself (Raft consensus)**
+➡️ Kafka itself (Raft consensus)
 
 ### How it works
 
@@ -108,7 +108,7 @@ Raft elects a controller leader
 
 📌 Still:
 
-> **A Kafka broker becomes the controller**
+> A Kafka broker becomes the controller
 
 ---
 
@@ -136,7 +136,7 @@ Kafka Controller Quorum (Raft)
 Broker-1 ← Controller
 ```
 
-📌 **Controller is always a Kafka broker**
+📌 Controller is always a Kafka broker
 
 ---
 
@@ -179,11 +179,11 @@ Controller → Broker-3
 
 Because:
 
-* Multiple controllers → conflicting leader elections
-* Split-brain scenario
-* Inconsistent metadata
+ Multiple controllers → conflicting leader elections
+ Split-brain scenario
+ Inconsistent metadata
 
-👉 **Exactly one source of truth**
+👉 Exactly one source of truth
 
 ---
 
@@ -191,9 +191,9 @@ Because:
 
 You NEVER interact with:
 
-* ZooKeeper
-* KRaft
-* Controller
+ ZooKeeper
+ KRaft
+ Controller
 
 But you MUST understand:
 ✔ Why leadership changes
@@ -204,15 +204,15 @@ But you MUST understand:
 
 # 🔟 Interview-Ready Explanation (Perfect Answer)
 
-> **Kafka Controller is a role played by one broker that manages cluster metadata and partition leadership. In older Kafka versions, ZooKeeper handled controller election, while in newer versions Kafka uses KRaft. ZooKeeper or KRaft do not act as the controller; they only help elect which broker becomes the controller.**
+> Kafka Controller is a role played by one broker that manages cluster metadata and partition leadership. In older Kafka versions, ZooKeeper handled controller election, while in newer versions Kafka uses KRaft. ZooKeeper or KRaft do not act as the controller; they only help elect which broker becomes the controller.
 
 ---
 
 # 1️⃣1️⃣ One-liner Mental Model (Remember this)
 
-> **ZooKeeper / KRaft = Election System**
-> **Controller = Elected Kafka Broker**
-> **Controller’s Job = Cluster Management**
+> ZooKeeper / KRaft = Election System
+> Controller = Elected Kafka Broker
+> Controller’s Job = Cluster Management
 
 ---
 

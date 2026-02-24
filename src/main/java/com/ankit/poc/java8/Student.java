@@ -1,6 +1,7 @@
 package com.ankit.poc.java8;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Student implements Comparable<Student> {
   private Integer id;
@@ -22,6 +23,31 @@ public class Student implements Comparable<Student> {
       return -1;
     }
   }
+
+
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(age, city, contacts, dept, gender, id, name, rank);
+  }
+
+
+
+  @Override
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof Student other)) {
+      return false;
+    }
+    return Objects.equals(age, other.age) && Objects.equals(city, other.city)
+        && Objects.equals(contacts, other.contacts) && Objects.equals(dept, other.dept)
+        && Objects.equals(gender, other.gender) && Objects.equals(id, other.id)
+        && Objects.equals(name, other.name) && Objects.equals(rank, other.rank);
+  }
+
+
 
   /**
    * @return the id

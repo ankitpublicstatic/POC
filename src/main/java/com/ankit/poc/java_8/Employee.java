@@ -10,14 +10,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-class Employee {
-
+public class Employee {
   private int id;
   private String name;
   private String dept;
   private List<Project> projects;
   private double salary;
   private String gender;
-
 }
 

@@ -7,13 +7,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import com.ankit.poc.StaticData;
 
 public class Java8MethodCheatSheet {
 
   public static void main(String[] args) {
 
 
-    List<Employee> employees = EmployeeDataBase.getAllEmployees();
+    List<Employee> employees = StaticData.getAllEmployees();
 
     // forEach
     // employees.forEach(e-> System.out.println(e.getName()+" : "+e.getSalary()));
