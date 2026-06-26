@@ -1,12 +1,12 @@
-Sure! Here's a **complete and practical explanation** of how to **deploy a Java (Spring Boot) application** inside **Docker** and then deploy it to **Kubernetes (K8s)**.
+Sure! Here's a complete and practical explanation of how to deploy a Java (Spring Boot) application inside Docker and then deploy it to Kubernetes (K8s).
 
-This is a **step-by-step breakdown**, tailored for **Java developers** who want to understand **Kubernetes deployment for Dockerized applications**.
+This is a step-by-step breakdown, tailored for Java developers who want to understand Kubernetes deployment for Dockerized applications.
 
 ---
 
 # 🚀 Overview of Java → Docker → Kubernetes Deployment
 
-```
+
 Java App (Spring Boot)
    ↓
 Build JAR file
@@ -16,7 +16,7 @@ Package in Docker Container
 Push to Docker Registry (Docker Hub / ECR / GCR)
    ↓
 Deploy to Kubernetes Cluster (minikube / EKS / GKE / AKS)
-```
+
 
 ---
 
@@ -24,7 +24,7 @@ Deploy to Kubernetes Cluster (minikube / EKS / GKE / AKS)
 
 ### Java class example (optional)
 
-```java
+java
 @SpringBootApplication
 @RestController
 public class DemoApp {
@@ -37,15 +37,15 @@ public class DemoApp {
         return "Hello from Kubernetes!";
     }
 }
-```
+
 
 ### Build JAR
 
-```bash
+bash
 ./mvnw clean package
-```
 
-Produces: `target/demo-app.jar`
+
+Produces: target/demo-app.jar
 
 ---
 
@@ -53,33 +53,33 @@ Produces: `target/demo-app.jar`
 
 ### Dockerfile
 
-```dockerfile
+dockerfile
 FROM openjdk:17-jdk-alpine
 ARG JAR_FILE=target/demo-app.jar
 COPY ${JAR_FILE} app.jar
 ENTRYPOINT ["java", "-jar", "/app.jar"]
-```
+
 
 ### Build Docker Image
 
-```bash
+bash
 docker build -t myuser/demo-app:1.0 .
-```
+
 
 ### Test Locally (Optional)
 
-```bash
+bash
 docker run -p 8080:8080 myuser/demo-app:1.0
-```
+
 
 ---
 
 # 📤 3. Push to Docker Hub (or any registry)
 
-```bash
+bash
 docker login
 docker push myuser/demo-app:1.0
-```
+
 
 You’ll refer to this image in the Kubernetes deployment YAML.
 
@@ -89,17 +89,17 @@ You’ll refer to this image in the Kubernetes deployment YAML.
 
 ### A. Set up Kubernetes
 
-Use **Minikube** (local), **Docker Desktop**, or **Cloud Provider** (like EKS, GKE, AKS):
+Use Minikube (local), Docker Desktop, or Cloud Provider (like EKS, GKE, AKS):
 
-```bash
+bash
 minikube start
-```
+
 
 ---
 
-### B. Create Deployment YAML (`deployment.yaml`)
+### B. Create Deployment YAML (deployment.yaml)
 
-```yaml
+yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -119,13 +119,13 @@ spec:
           image: myuser/demo-app:1.0
           ports:
             - containerPort: 8080
-```
+
 
 ---
 
-### C. Create Service YAML (`service.yaml`)
+### C. Create Service YAML (service.yaml)
 
-```yaml
+yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -137,16 +137,16 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
-```
+
 
 ---
 
 ### D. Apply to Kubernetes
 
-```bash
+bash
 kubectl apply -f deployment.yaml
 kubectl apply -f service.yaml
-```
+
 
 ---
 
@@ -154,9 +154,9 @@ kubectl apply -f service.yaml
 
 ### If using Minikube:
 
-```bash
+bash
 minikube service demo-app-service
-```
+
 
 This opens the app in the browser using the exposed NodePort.
 
@@ -164,12 +164,12 @@ This opens the app in the browser using the exposed NodePort.
 
 # 📊 Monitoring and Debugging
 
-```bash
+bash
 kubectl get pods
 kubectl get deployments
 kubectl get services
 kubectl logs <pod-name>
-```
+
 
 ---
 
@@ -197,4 +197,4 @@ kubectl logs <pod-name>
 
 ---
 
-Would you like me to generate these files for a specific Java project, or do you want to add features like **environment variables, health checks, volumes, or secrets** in the Kubernetes config?
+Would you like me to generate these files for a specific Java project, or do you want to add features like environment variables, health checks, volumes, or secrets in the Kubernetes config?

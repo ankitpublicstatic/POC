@@ -38,3 +38,11 @@ build/
 .vscode/
 /*.rar
 
+/sublime/
+/sublime
+src/main/java/com/ankit/poc/sql/sublime/
+/src/main/java/com/ankit/poc/sql/sublime/
+
+.DS_Store
+*.DS_Store
+/*.DS_Store

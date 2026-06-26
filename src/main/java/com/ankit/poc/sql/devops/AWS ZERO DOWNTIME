@@ -1,15 +1,12 @@
 Below is a production-grade, zero-downtime deployment strategy for a Spring Boot application on AWS with CI/CD, explained step-by-step. This is aligned with real backend engineering practices (microservices, scalability, resilience) and is interview-ready.
 
----
-
 High-Level Architecture (Zero Downtime)
 
-```
 		Git (GitHub/GitLab/Jenkins)
 		   |
 		   |  CI (Build, Test, Image)
 		   v
-		Docker Image → Amazon ECR
+		Docker Image → Amazon Elastic Container Registry ECR
 		   |
 		   |  CD
 		   v
@@ -18,7 +15,7 @@ High-Level Architecture (Zero Downtime)
 		Application Load Balancer (Health Checks + Traffic Shifting)
 		   |
 		Users/Client
-```
+
 ECS stands for Elastic Container Service in AWS.
 Elastic Container Registry (ECR) 
 ---
@@ -49,47 +46,40 @@ Best for strict zero downtime
 
  AWS Service Choices (Best Practice)
 
-| Layer              | Service                                           |
-| ------------------ | ------------------------------------------------- |
-| Compute            | ECS Fargate or EKS                                |
+| Layer              | Service                                           	|
+| ------------------ | ----------------------------------------------------- |
+| Compute            | ECS Fargate or EKS                                	|
 | Load Balancer      | Application Load Balancer (ALB)               		|
 | Container Registry | Amazon Elastic Container Registry             		|
-| CI/CD              | GitHub Actions / GitLab CI / AWS CodePipeline 	/ Jenkins	|
+| CI/CD              | GitHub Actions / GitLab CI / AWS CodePipeline/Jenkins |
 | Secrets            | AWS Secrets Manager / SSM                     		|
 | Monitoring         | CloudWatch + Prometheus + Grafana             		|
 
 👉 ECS Fargate is simpler and preferred unless you need Kubernetes features.
-
----
-
+ 
  Step-by-Step Implementation (ECS + Blue-Green)
-
----
-
+ 
  1️⃣ Containerize Spring Boot App
 
  Dockerfile
 
-```dockerfile
+dockerfile
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY target/app.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java","-jar","app.jar"]
-```
-
----
-
+ 
  2️⃣ Push Image to Amazon ECR
 
-```bash
+bash
 aws ecr get-login-password --region ap-south-1 \
 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.ap-south-1.amazonaws.com
 
 docker build -t springboot-app .
 docker tag springboot-app:latest <ecr-repo>:${GIT_SHA}
 docker push <ecr-repo>:${GIT_SHA}
-```
+
 
 ---
 
@@ -102,8 +92,8 @@ docker push <ecr-repo>:${GIT_SHA}
  Service
  Two Target Groups
 
-   `springboot-blue`
-   `springboot-green`
+   springboot-blue
+   springboot-green
  ALB with Listener
 
 ALB forwards traffic to only one target group at a time.
@@ -127,7 +117,7 @@ ALB forwards traffic to only one target group at a time.
 
  Spring Boot
 
-```yaml
+yaml
 management:
   endpoints:
     web:
@@ -137,23 +127,23 @@ management:
     health:
       probes:
         enabled: true
-```
+
 
  ALB Health Check
 
-```
+
 Path: /actuator/health
 Healthy threshold: 2
 Unhealthy threshold: 2
-```
+
 
 ---
 
  6️⃣ CI/CD Pipeline (GitHub Actions Example)
 
- `.github/workflows/deploy.yml`
+ .github/workflows/deploy.yml
 
-```yaml
+yaml
 name: Spring Boot CI/CD
 
 on:
@@ -194,7 +184,7 @@ jobs:
           --application-name springboot-app \
           --deployment-group-name springboot-bg \
           --revision revisionType=AppSpecContent,appSpecContent="{...}"
-```
+
 
 ---
 
@@ -219,9 +209,9 @@ jobs:
 
  Example
 
-```sql
+sql
 ALTER TABLE orders ADD COLUMN status_v2 VARCHAR(20);
-```
+
 
 Deploy app → migrate data → remove old column later.
 
@@ -312,7 +302,7 @@ Spring Boot → Docker → ECR → ECS (Blue-Green, Zero Downtime)
 
  Architecture with Jenkins
 
-```
+
 Git Repo
    |
    |  Webhook
@@ -325,7 +315,7 @@ Jenkins
         |
         v
      ECS + ALB
-```
+
 
 ---
 
@@ -345,9 +335,9 @@ Jenkins
 
 | Credential     | Type        | ID               |
 | -------------- | ----------- | ---------------- |
-| AWS Access Key | Secret Text | `aws-access-key` |
-| AWS Secret Key | Secret Text | `aws-secret-key` |
-| ECR Registry   | Secret Text | `ecr-registry`   |
+| AWS Access Key | Secret Text | aws-access-key |
+| AWS Secret Key | Secret Text | aws-secret-key |
+| ECR Registry   | Secret Text | ecr-registry   |
 
 ---
 
@@ -361,7 +351,7 @@ Jenkins
 
  Jenkinsfile (Declarative Pipeline)
 
-```groovy
+groovy
 pipeline {
     agent any
 
@@ -454,13 +444,13 @@ pipeline {
         }
     }
 }
-```
+
 
 ---
 
- `taskdef.json` (Template)
+ taskdef.json (Template)
 
-```json
+json
 {
   "family": "springboot-task",
   "networkMode": "awsvpc",
@@ -481,13 +471,13 @@ pipeline {
     }
   ]
 }
-```
+
 
 ---
 
- `appspec.yaml` (Blue-Green)
+ appspec.yaml (Blue-Green)
 
-```yaml
+yaml
 version: 1
 Resources:
   - TargetService:
@@ -497,7 +487,7 @@ Resources:
         LoadBalancerInfo:
           ContainerName: springboot-container
           ContainerPort: 8080
-```
+
 
 ---
 
@@ -509,7 +499,7 @@ Resources:
 4. CodeDeploy:
 
     Spins up Green tasks
-    Waits for `/actuator/health`
+    Waits for /actuator/health
     Shifts ALB traffic
 5. Old tasks terminated only after success
 
@@ -570,7 +560,7 @@ Amazon Application Load Balancer (ALB) is a managed Layer-7 (HTTP/HTTPS) load ba
 
  Where it sits
 
-```
+
 Internet / Clients
         |
         v
@@ -580,13 +570,13 @@ Internet / Clients
   ECS / EKS / EC2
         |
    Spring Boot Apps
-```
+
 
  ALB Responsibilities
 
 ✔ TLS termination (HTTPS)
-✔ Path-based routing (`/api`, `/auth`, `/orders`)
-✔ Host-based routing (`api.example.com`)
+✔ Path-based routing (/api, /auth, /orders)
+✔ Host-based routing (api.example.com)
 ✔ Health checks
 ✔ Traffic distribution
 ✔ Auto scaling integration
@@ -610,7 +600,7 @@ It typically uses Spring Cloud LoadBalancer to distribute traffic between micros
 
  Where it sits
 
-```
+
 Client
    |
    v
@@ -618,7 +608,7 @@ Spring Cloud Gateway
    |
    v
 Microservices
-```
+
 
  SCG Responsibilities
 
@@ -687,7 +677,7 @@ Because they solve different problems.
 
  ✅ Correct Setup
 
-```
+
 Internet
    |
    v
@@ -698,7 +688,7 @@ Spring Cloud Gateway (API Gateway)
    |
    v
 Microservices
-```
+
 
  Responsibilities Split
 
@@ -714,21 +704,21 @@ Microservices
 
  Incoming Request
 
-```
+
 https://api.myapp.com/orders
-```
+
 
  Step-by-step
 
 1. ALB
 
     Terminates TLS
-    Routes `/orders` → Gateway target group
+    Routes /orders → Gateway target group
 2. Spring Cloud Gateway
 
     Validates JWT
     Rate limits user
-    Routes to `ORDER-SERVICE`
+    Routes to ORDER-SERVICE
 3. Spring Cloud LoadBalancer
 
     Picks one instance
@@ -814,17 +804,17 @@ TLS (Transport Layer Security) is a cryptographic protocol that secures data in 
 
 Without TLS:
 
-```
+
 Client ----(plain text)----> Server
-```
+
 
 ❌ Anyone can read passwords, tokens, data
 
 With TLS:
 
-```
+
 Client ----(encrypted)----> Server
-```
+
 
 ✔ Data is unreadable to attackers
 
@@ -834,13 +824,13 @@ Client ----(encrypted)----> Server
 
  TLS Handshake (Simplified)
 
-```
+
 Client → Server: Hello (supported ciphers)
 Server → Client: Certificate + Public Key
 Client → Server: Encrypted secret
 Both sides: Derive session key
 Secure communication starts
-```
+
 
 After handshake:
 
@@ -851,7 +841,7 @@ After handshake:
 
  4️⃣ Where TLS Lives in Real Architecture
 
-```
+
 Browser
    |
 TLS
@@ -861,7 +851,7 @@ Load Balancer
 HTTP
    |
 Spring Boot App
-```
+
 
 ---
 
@@ -873,15 +863,15 @@ TLS termination means:
 
  Before termination
 
-```
+
 Client ⇄ (TLS) ⇄ App
-```
+
 
  After termination
 
-```
+
 Client ⇄ (TLS) ⇄ ALB ⇄ (HTTP) ⇄ App
-```
+
 
 ✔ ALB decrypts traffic
 ✔ App receives plain HTTP
@@ -901,16 +891,16 @@ Client ⇄ (TLS) ⇄ ALB ⇄ (HTTP) ⇄ App
  Step 1: Certificate Setup
 
  TLS certificate issued via ACM
- Domain: `api.myapp.com`
+ Domain: api.myapp.com
  Attached to ALB HTTPS listener (443)
 
 ---
 
  Step 2: Client Connects
 
-```
+
 https://api.myapp.com
-```
+
 
  Browser initiates TLS handshake with ALB
  ALB presents certificate
@@ -935,9 +925,9 @@ Client checks:
  ALB decrypts incoming HTTPS traffic
  Forwards request as HTTP to backend
 
-```
+
 ALB → ECS / EC2 / EKS
-```
+
 
 ---
 
@@ -977,9 +967,9 @@ ALB → ECS / EC2 / EKS
 
 By default:
 
-```
+
 ALB → App = HTTP (inside VPC)
-```
+
 
  Is this safe?
 
@@ -990,9 +980,9 @@ ALB → App = HTTP (inside VPC)
  Enable HTTPS between ALB and services
  Mutual TLS (mTLS)
 
-```
+
 Client ⇄ TLS ⇄ ALB ⇄ TLS ⇄ App
-```
+
 
 ---
 

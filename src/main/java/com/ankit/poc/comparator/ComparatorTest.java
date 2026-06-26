@@ -10,7 +10,7 @@ import com.ankit.poc.java8.Student;
 public class ComparatorTest {
 
   public static void main(String[] args) {
-    List<Student> studentList = StaticData.studentList;
+    List<Student> studentList = StaticData.getAllStudents();
 
     Comparator<Student> nameComparator = (student1, student2) -> {
       if (student1.getId() == student2.getId()) {

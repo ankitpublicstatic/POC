@@ -5,11 +5,18 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 import com.ankit.poc.StaticData;
+import com.ankit.poc.java8.Student;
 import com.ankit.poc.java_8.Employee;
 
 public class Test {
   public static void main(String[] args) {
-    // List<Student> studentList = StaticData.getAllStudents();
+    calculator();
+
+  }
+
+  public static void java8() {
+
+    List<Student> studentList = StaticData.getAllStudents();
     List<Employee> employeesList = StaticData.getAllEmployees();
 
     // 1) We have to group all the employees using Department Name
@@ -24,41 +31,28 @@ public class Test {
             .map(Employee::getName).toList();
 
     System.out.println(employeeNames);
-    // List<Integer> uniqueStudentIdsSet =
-    // studentList.stream().filter(student -> student.getId() != null)
-    // .collect(Collectors.toMap(Student::getId, student -> student,
-    // (exitsing, replacement) -> exitsing))
-    // .values().stream().map(stud -> stud.getId()).collect(Collectors.toList());
-    // List<Integer> list = studentList.stream().filter(student -> student.getId() != null)
-    // .map(Student::getId).distinct().toList();
-    // System.out.println(uniqueStudentIdsSet);
-    // System.out.println(list);
-    // <Student, Integer, Student>
+    List<Integer> uniqueStudentIdsSet =
+        studentList.stream().filter(student -> student.getId() != null)
+            .collect(Collectors.toMap(Student::getId, student -> student,
+                (exitsing, replacement) -> exitsing))
+            .values().stream().map(stud -> stud.getId()).collect(Collectors.toList());
+    List<Integer> list = studentList.stream().filter(student -> student.getId() != null)
+        .map(Student::getId).distinct().toList();
+    System.out.println(uniqueStudentIdsSet);
+    System.out.println(list); // <Student, Integer, Student>
     // Collector<Student, ?, Map<Integer, Student>> java.util.stream.Collectors.toMap(
     // Function<? super Student, ? extends Integer> keyMapper,
     // Function<? super Student, ? extends Student> valueMapper,
     // BinaryOperator<Student> mergeFunction
-
-    // let s1 = 'abcd'
-    // let s2 = 'pqr'
-    //
-    // we need to merge the string alternative characters & reverse it.
-    //
-    // o/p: apbqcd
-    //
-    // expected: dcqbpa
-
-    // mergeAndReverseTheString();
-
 
   }
 
   public static void calculator() {
     while (true) {
       Scanner scanner = new Scanner(System.in);
-      System.out.println("Enter First number, Expressoin, Second number without any space.");
+      System.out.println("Enter First number, Expressoin, Second number with space.");
       String text = scanner.next();
-      String[] input = text.split("");
+      String[] input = text.split(" ");
       if (input.length > 3) {
         throw new IllegalArgumentException("Invalid input");
       }
@@ -92,6 +86,14 @@ public class Test {
       System.out.println(result);
     }
   }
+  // let s1 = 'abcd'
+  // let s2 = 'pqr'
+  //
+  // we need to merge the string alternative characters & reverse it.
+  //
+  // o/p: apbqcd
+  //
+  // expected: dcqbpa
 
   public static String mergeAndReverseTheString() {
     String s1 = "abcd";
