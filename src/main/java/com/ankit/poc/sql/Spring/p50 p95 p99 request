@@ -1,0 +1,413 @@
+P50, P95, and P99 are percentile metrics used to describe the distribution of response times (latency) in a system. They tell you what fraction of requests complete within a given time, instead of collapsing everything into a single “average.”  
+
+What each percentile means
+
+- P50 (50th percentile, median)  
+  - Definition: 50% of requests are faster than or equal to this value; 50% are slower.  
+  - Interpretation: “Typical” user experience.  
+  - Example: If P50 latency = 80 ms, half of all requests finish in ≤ 80 ms. 
+
+- P95 (95th percentile)  
+  - Definition: 95% of requests are faster than or equal to this value; 5% are slower.  
+  - Interpretation: “Most users, including many on slower paths.” Captures the tail of the distribution.  
+  - Example: If P95 latency = 250 ms, 95% of requests finish in ≤ 250 ms; the slowest 5% take longer. 
+
+- P99 (99th percentile)  
+  - Definition: 99% of requests are faster than or equal to this value; 1% are slower.  
+  - Interpretation: “Worst 1%” of requests – where you see rare but painful issues (GC pauses, lock contention, dependency timeouts, noisy neighbors).  
+  - Example: If P99 latency = 600 ms, 99% of requests finish in ≤ 600 ms; 1% take longer. 
+
+Why not just use average?
+
+Averages are easily skewed by outliers. A few very slow requests can make the average look bad even if most users are fine, or hide serious tail problems if most requests are fast but some are extremely slow. Percentiles give a clearer picture of user experience across the distribution. 
+
+Example:  
+- 99 requests at 50 ms, 1 request at 5,000 ms  
+  - Average ≈ 99.5 ms (looks “okay”)  
+  - P50 ≈ 50 ms (typical user is fine)  
+  - P99 = 5,000 ms (clearly shows a severe outlier problem) 
+
+How they’re used in practice (SRE / backend / APIs)
+
+- P50  
+  - Baseline health / typical performance.  
+  - Good for spotting broad regressions (e.g., after a deploy). 
+
+- P95  
+  - Common SLO target for “good performance for most users.”  
+  - Used to tune system performance and catch moderate tail issues. 
+
+- P99  
+  - Critical for high-traffic or high-value paths (checkout, payments, key APIs).  
+  - Exposes architectural bottlenecks and rare failure modes that P95 hides. 
+
+In monitoring dashboards (Prometheus, Grafana, APM tools), you’ll often see latency plotted as P50/P95/P99 over time to understand both typical behavior and worst-case behavior under load. 
+
+If you tell me your stack (e.g., Java/Spring Boot, Node, Go) and how you’re measuring latency (logs, metrics, APM), I can show concrete examples of computing and using P50/P95/P99 in that context.
+
+Here’s how you can compute and use p50/p95/p99 latencies in Java, both from an in‑memory list and in a more realistic metrics setup.
+
+1. From a `List<Long>` of latencies (ms)
+
+```java
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class LatencyPercentiles {
+
+    public static record Percentiles(long p50, long p95, long p99) {}
+
+    public static Percentiles compute(List<Long> latenciesMs) {
+        if (latenciesMs == null || latenciesMs.isEmpty()) {
+            throw new IllegalArgumentException("latenciesMs must not be empty");
+        }
+
+        List<Long> sorted = new ArrayList<>(latenciesMs);
+        Collections.sort(sorted);
+
+        int n = sorted.size();
+        long p50 = percentile(sorted, 0.50, n);
+        long p95 = percentile(sorted, 0.95, n);
+        long p99 = percentile(sorted, 0.99, n);
+
+        return new Percentiles(p50, p95, p99);
+    }
+
+    private static long percentile(List<Long> sorted, double p, int n) {
+        // Index for percentile p (0-based)
+        int idx = (int) Math.ceil(p * n) - 1;
+        idx = Math.max(0, Math.min(idx, n - 1));
+        return sorted.get(idx);
+    }
+
+    // Example usage
+    public static void main(String[] args) {
+        List<Long> latencies = List.of(
+                10L, 12L, 15L, 20L, 25L, 30L, 40L, 50L, 80L, 120L,
+                150L, 200L, 250L, 300L, 400L, 500L, 600L, 800L, 1000L, 1500L
+        );
+
+        Percentiles p = compute(latencies);
+        System.out.println("p50 = " + p.p50() + " ms");
+        System.out.println("p95 = " + p.p95() + " ms");
+        System.out.println("p99 = " + p.p99() + " ms");
+    }
+}
+```
+
+This is fine for:
+- Tests
+- Small batch analyses
+- Offline processing of logged latencies
+
+For high‑throughput, concurrent services, use a proper metrics library.
+
+*
+
+2. Using Micrometer (Spring Boot / production services)
+
+If you’re on Spring Boot, Micrometer is the standard way to track latency percentiles and expose them to Prometheus/Grafana.
+
+#Add dependency (Maven)
+
+```xml
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-registry-prometheus</artifactId>
+</dependency>
+```
+
+#Record latencies with a `Timer`
+
+```java
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.TimeUnit;
+
+@Service
+public class MyService {
+
+    private final Timer requestTimer;
+
+    public MyService(MeterRegistry meterRegistry) {
+        this.requestTimer = Timer.builder("http.request.duration")
+                .description("HTTP request duration")
+                .serviceLevelObjectives(
+                        // optional: define buckets / SLOs
+                )
+                .register(meterRegistry);
+    }
+
+    public void handleRequest() {
+        long start = System.nanoTime();
+        try {
+            // your logic here
+            doWork();
+        } finally {
+            long durationNs = System.nanoTime() - start;
+            requestTimer.record(durationNs, TimeUnit.NANOSECONDS);
+        }
+    }
+
+    private void doWork() {
+        // ...
+    }
+}
+```
+
+#Configure percentiles in `application.yml`
+
+```yaml
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.request.duration: true
+      percentiles:
+        http.request.duration: 0.5, 0.95, 0.99
+```
+
+Micrometer + Prometheus will then expose something like:
+
+- `http_request_duration_seconds{quantile="0.5"}`
+- `http_request_duration_seconds{quantile="0.95"}`
+- `http_request_duration_seconds{quantile="0.99"}`
+
+You can query these in Prometheus as `http_request_duration_seconds{quantile="0.95"}` etc., and visualize in Grafana.
+
+*
+
+3. Using a `HdrHistogram` (high‑precision, low overhead)
+
+For very high throughput and accurate tails, `HdrHistogram` is popular.
+
+#Dependency
+
+```xml
+<dependency>
+    <groupId>org.hdrhistogram</groupId>
+    <artifactId>HdrHistogram</artifactId>
+    <version>2.1.12</version> <!-- check latest -->
+</dependency>
+```
+
+#Example
+
+```java
+import org.HdrHistogram.Histogram;
+
+public class HdrExample {
+
+    public static void main(String[] args) {
+        // Track latencies from 1 µs to 1 minute with 3 significant digits
+        Histogram histogram = new Histogram(60_000_000L, 3);
+
+        // Record some latencies in microseconds
+        histogram.recordValue(10_000);   // 10 ms
+        histogram.recordValue(20_000);   // 20 ms
+        histogram.recordValue(50_000);   // 50 ms
+        histogram.recordValue(100_000);  // 100 ms
+        histogram.recordValue(500_000);  // 500 ms
+        histogram.recordValue(1_000_000);// 1 s
+
+        long p50 = histogram.getValueAtPercentile(50.0);
+        long p95 = histogram.getValueAtPercentile(95.0);
+        long p99 = histogram.getValueAtPercentile(99.0);
+
+        System.out.println("p50 = " + p50 / 1_000.0 + " ms");
+        System.out.println("p95 = " + p95 / 1_000.0 + " ms");
+        System.out.println("p99 = " + p99 / 1_000.0 + " ms");
+    }
+}
+```
+
+Use this when:
+- You have very high RPS
+- You care about accurate tail (p99, p99.9)
+- You want to aggregate histograms across time windows
+
+*
+
+If you tell me your stack (plain Java vs Spring Boot, and whether you use Prometheus/Grafana), I can show a minimal, ready‑to‑paste example tailored to that.
+
+Great stack for this. In Spring Boot + Micrometer + Prometheus + Grafana, you get P50/P95/P99 from histogram metrics and the PromQL function `histogram_quantile()`.
+
+1. Spring Boot: expose histogram metrics
+
+Spring Boot uses Micrometer under the hood. For latency (timers), you want:
+
+- `.publishPercentileHistogram()` → creates `_bucket` metrics for Prometheus.
+- Optionally `.publishPercentiles(0.5, 0.95, 0.99)` → precomputed client-side percentiles (more overhead, less flexible).
+
+#Built-in HTTP latency
+
+If you’re using Spring Boot’s web starter and Prometheus, you already have:
+
+```properties
+# application.properties
+management.endpoints.web.exposure.include=prometheus
+management.prometheus.metrics.export.enabled=true
+```
+
+Micrometer exposes something like:
+
+```http_server_requests_seconds_bucket{...}
+http_server_requests_seconds_count{...}
+http_server_requests_seconds_sum{...}
+```
+
+These are histograms; you compute P50/P95/P99 in PromQL.
+
+#Custom timers (optional but common)
+
+For business-level latencies (e.g., payment, search, external calls):
+
+```java
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import org.springframework.stereotype.Service;
+
+@Service
+public class PaymentService {
+
+    private final Timer paymentTimer;
+
+    public PaymentService(MeterRegistry meterRegistry) {
+        this.paymentTimer = Timer.builder("payment.duration")
+                .description("Payment processing duration")
+                .tag("service", "payment")
+                .publishPercentileHistogram()        // enable buckets for Prometheus
+                .publishPercentiles(0.5, 0.95, 0.99) // optional: client-side percentiles
+                .serviceLevelObjectives(
+                        java.time.Duration.ofMillis(100),
+                        java.time.Duration.ofMillis(500),
+                        java.time.Duration.ofSeconds(1)
+                )
+                .register(meterRegistry);
+    }
+
+    public void processPayment() {
+        Timer.Sample sample = Timer.start(paymentTimer);
+        try {
+            // your logic
+        } finally {
+            sample.stop(paymentTimer);
+        }
+    }
+}
+```
+
+This will expose:
+
+```payment_duration_seconds_bucket{...}
+payment_duration_seconds_count{...}
+payment_duration_seconds_sum{...}
+```
+
+2. Prometheus: calculate P50/P95/P99 with `histogram_quantile`
+
+Use `histogram_quantile()` over the `_bucket` series.
+
+#Global HTTP latency percentiles
+
+In Prometheus (or directly in Grafana):
+
+```promql
+# P50 (median) HTTP request latency
+histogram_quantile(
+  0.5,
+  sum(rate(http_server_requests_seconds_bucket[5m])) by (le)
+)
+
+# P95
+histogram_quantile(
+  0.95,
+  sum(rate(http_server_requests_seconds_bucket[5m])) by (le)
+)
+
+# P99
+histogram_quantile(
+  0.99,
+  sum(rate(http_server_requests_seconds_bucket[5m])) by (le)
+)
+```
+
+Notes:
+
+- `rate(...[5m])` → 5‑minute rate; adjust window as needed.
+- `by (le)` is required; `le` = “less than or equal” bucket boundaries.
+
+#Per-endpoint (or per-service) percentiles
+
+Add labels to group by:
+
+```promql
+# P95 per HTTP route / controller
+histogram_quantile(
+  0.95,
+  sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri, method)
+)
+```
+
+Or for your custom timer:
+
+```promql
+# P50/P95/P99 for payment duration
+histogram_quantile(0.5,  sum(rate(payment_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.95, sum(rate(payment_duration_seconds_bucket[5m])) by (le))
+histogram_quantile(0.99, sum(rate(payment_duration_seconds_bucket[5m])) by (le))
+```
+
+You can add tags like `service`, `tenant`, `region`, etc., and then group by them in the query.
+
+3. Grafana: set up panels for P50/P95/P99
+
+In Grafana:
+
+1. Create a new panel → choose your Prometheus datasource.
+2. Use three queries (or three panels) like:
+
+   - Query A (P50)  
+     ```promql
+     histogram_quantile(
+       0.5,
+       sum(rate(http_server_requests_seconds_bucket[$__rate_interval])) by (le)
+     )
+     ```
+   - Query B (P95)  
+     ```promql
+     histogram_quantile(
+       0.95,
+       sum(rate(http_server_requests_seconds_bucket[$__rate_interval])) by (le)
+     )
+     ```
+   - Query C (P99)  
+     ```promql
+     histogram_quantile(
+       0.99,
+       sum(rate(http_server_requests_seconds_bucket[$__rate_interval])) by (le)
+     )
+     ```
+
+3. Set:
+   - Unit: `Seconds` or `Milliseconds` (you can multiply by 1000 in the query if you prefer ms).
+   - Legend: `P50`, `P95`, `P99`.
+4. Optionally add per-endpoint panels using `by (le, uri, method)`.
+
+You can also use a heatmap panel with the raw `_bucket` metrics to see the full distribution over time.
+
+4. Typical SRE usage with these percentiles
+
+- P50: baseline performance, “what most users see”.
+- P95: performance target for normal operation; often used in SLOs.
+- P99: tail latency; used to detect rare but severe issues (GC pauses, DB locks, network hiccups).
+
+Common pattern:
+
+- Alert on P95 > X for sustained periods.
+- Investigate P99 spikes even if P50/P95 look fine.
+
+If you share one of your existing metric names (e.g., from `/actuator/prometheus`), I can give you exact PromQL queries tailored to your setup (including per-controller, per-DB, or per-external-call breakdowns).

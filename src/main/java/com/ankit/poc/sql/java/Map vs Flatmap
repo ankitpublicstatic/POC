@@ -1,16 +1,15 @@
-Great question 👍 — **flattening** is one of the most important (and confusing) ideas when using **Java Streams**, especially with `map()` vs `flatMap()`.
+Great question 👍 — flattening is one of the most important (and confusing) ideas when using Java Streams, especially with map() vs flatMap().
 
-I’ll explain this **step-by-step**, with **real examples**, and then give you a **mental model** you can remember forever.
+I’ll explain this step-by-step, with real examples, and then give you a mental model you can remember forever.
 
 ---
 
-# 1️⃣ What does *flattening* mean?
+1️⃣ What does flattening mean?
 
-**Flattening = converting a “collection of collections” into a single collection**
+Flattening = converting a “collection of collections” into a single collection
 
 Example:
 
-```text
 Before flattening:
 [
   [1, 2, 3],
@@ -20,41 +19,40 @@ Before flattening:
 
 After flattening:
 [1, 2, 3, 4, 5, 6]
-```
 
-👉 **Remove one level of nesting**
+
+👉 Remove one level of nesting
 
 ---
 
-# 2️⃣ `map()` — Transformation (NO flattening)
+2️⃣ map() — Transformation (NO flattening)
 
-`map()` **transforms each element** into something else.
+map() transforms each element into something else.
 
-### Example 1: Simple map
+Example 1: Simple map
 
-```java
+java
 List<String> names = List.of("ankit", "rahul");
 
 List<Integer> lengths =
     names.stream()
          .map(String::length)
          .toList();
-```
+
 
 Output:
 
-```text
 [5, 5]
-```
+
 
 ✔ One input → one output
 ✔ Structure remains the same
 
 ---
 
-### Example 2: map() that CREATES nesting
+Example 2: map() that CREATES nesting
 
-```java
+java
 List<String> sentences = List.of(
     "Java is powerful",
     "Streams are cool"
@@ -64,37 +62,36 @@ List<String[]> result =
     sentences.stream()
              .map(s -> s.split(" "))
              .toList();
-```
+
 
 Output:
 
-```text
 [
   ["Java", "is", "powerful"],
   ["Streams", "are", "cool"]
 ]
-```
+
 
 🚨 Notice:
 
-* Each element becomes an **array**
-* Final result is a **List of arrays**
-* **No flattening happened**
+ Each element becomes an array
+ Final result is a List of arrays
+ No flattening happened
 
 ---
 
-# 3️⃣ `flatMap()` — Transformation + Flattening
+3️⃣ flatMap() — Transformation + Flattening
 
-`flatMap()` does **two things**:
+flatMap() does two things:
 
-1. **Transforms** each element into a stream
-2. **Flattens** all those streams into **one stream**
+1. Transforms each element into a stream
+2. Flattens all those streams into one stream
 
 ---
 
-### Example 3: flatMap() in action
+Example 3: flatMap() in action
 
-```java
+java
 List<String> sentences = List.of(
     "Java is powerful",
     "Streams are cool"
@@ -104,117 +101,112 @@ List<String> words =
     sentences.stream()
              .flatMap(s -> Arrays.stream(s.split(" ")))
              .toList();
-```
+
 
 Output:
 
-```text
 [Java, is, powerful, Streams, are, cool]
-```
+
 
 ✔ Nested structure removed
 ✔ Single stream of words
 
 ---
 
-# 4️⃣ Side-by-side comparison (MOST IMPORTANT)
+4️⃣ Side-by-side comparison (MOST IMPORTANT)
 
-### Input
+Input
 
-```java
+java
 List<List<Integer>> numbers = List.of(
     List.of(1, 2),
     List.of(3, 4)
 );
-```
+
 
 ---
 
-### Using `map()`
+Using map()
 
-```java
+java
 numbers.stream()
        .map(list -> list.stream())
        .toList();
-```
+
 
 Result:
 
-```text
 List<Stream<Integer>>
-```
+
 
 Data shape:
 
-```text
 [ Stream(1,2), Stream(3,4) ]
-```
+
 
 ❌ Still nested
 
 ---
 
-### Using `flatMap()`
+Using flatMap()
 
-```java
+java
 numbers.stream()
        .flatMap(list -> list.stream())
        .toList();
-```
+
 
 Result:
 
-```text
 [1, 2, 3, 4]
-```
+
 
 ✔ Flattened into one stream
 
 ---
 
-# 5️⃣ Mental model (remember this 👇)
+5️⃣ Mental model (remember this 👇)
 
-### `map()`
+map()
 
-```
+
 A → B
 A → B
 A → B
-```
 
-### `flatMap()`
 
-```
+flatMap()
+
+
 A → [B, B]
 A → [B]
 A → [B, B, B]
         ↓ flatten
 B, B, B, B, B, B
-```
+
 
 ---
 
-# 6️⃣ Very common real-world examples
+6️⃣ Very common real-world examples
 
-### 🔹 Example: List of Orders → List of Products
+🔹 Example: List of Orders → List of Products
 
-```java
+java
 List<Order> orders;
 
 List<Product> products =
     orders.stream()
           .flatMap(order -> order.getProducts().stream())
           .toList();
-```
+
 
 ✔ Each order has many products
-✔ You want **all products**, not nested lists
+✔ You want all products, not nested lists
 
 ---
 
-### 🔹 Example: Filtering unique words from text
-
-```java
+🔹 Example: Filtering unique words from 
+java
 List<String> sentences;
 
 Set<String> uniqueWords =
@@ -222,32 +214,32 @@ Set<String> uniqueWords =
              .flatMap(s -> Arrays.stream(s.split(" ")))
              .map(String::toLowerCase)
              .collect(Collectors.toSet());
-```
+
 
 ---
 
-# 7️⃣ When to use what?
+7️⃣ When to use what?
 
 | Situation                        | Use         |
 | -------------------------------- | ----------- |
-| One element → one element        | `map()`     |
-| One element → many elements      | `flatMap()` |
-| Avoid `List<List<T>>`            | `flatMap()` |
-| Parsing, splitting, DB relations | `flatMap()` |
+| One element → one element        | map()     |
+| One element → many elements      | flatMap() |
+| Avoid List<List<T>>            | flatMap() |
+| Parsing, splitting, DB relations | flatMap() |
 
 ---
 
-# 8️⃣ One-line definition (interview ready)
+8️⃣ One-line definition (interview ready)
 
-> **Flattening** in Java Streams means **removing one level of nested structure**, typically converting a `Stream<Collection<T>>` into a `Stream<T>` using `flatMap()`.
+> Flattening in Java Streams means removing one level of nested structure, typically converting a Stream<Collection<T>> into a Stream<T> using flatMap().
 
 ---
 
 If you want, I can next:
 
-* Explain **flatMap vs for-loop**
-* Show **debug visualization**
-* Explain **flatMap in Optional**
-* Explain **flatMap in reactive streams (Mono/Flux)**
+ Explain flatMap vs for-loop
+ Show debug visualization
+ Explain flatMap in Optional
+ Explain flatMap in reactive streams (Mono/Flux)
 
 Just tell me 👍

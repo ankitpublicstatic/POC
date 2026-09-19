@@ -1,0 +1,103 @@
+Message vs Event (Distributed Systems)
+
+This is VERY IMPORTANT conceptually.
+
+ What is a Message?
+
+> A message is a command or data sent from one service to another expecting processing.
+
+ Characteristics
+
+Has a destination
+Often expects action
+May require ack / response
+
+ Examples
+
+json
+{
+  "type": "CREATE_ORDER",
+  "orderId": "123"
+}
+
+
+📌 Kafka command topic
+📌 RabbitMQ queue
+
+
+
+ Message examples
+
+PlaceOrder
+ChargePayment
+SendEmail
+UpdateInventory
+
+
+
+ What is an Event?
+
+> An event represents a fact that already happened
+
+ Characteristics: 
+Immutable
+No expectation of response
+Broadcast in nature
+
+ Examples: json
+{
+  "event": "OrderPlaced",
+  "orderId": "123",
+  "timestamp": "..."
+}
+
+
+📌 Kafka topic
+📌 Event stream
+
+
+
+ Message vs Event Comparison
+
+| Aspect     | Message        | Event         |
+| - | -- | - |
+| Intent     | Do this        | This happened |
+| Coupling   | Tighter        | Loose         |
+| Mutability | Can change     | Immutable     |
+| Response   | Often expected | Never         |
+| Retry      | Command retry  | Event replay  |
+
+ Example Flow
+
+ Command (Message)
+
+Client → OrderService
+         ↓
+      Command: PlaceOrder
+
+ Event
+
+OrderService → Kafka
+                ↓
+          OrderPlaced Event
+
+ Why this matters in Event Loop systems
+
+Event loops process events
+Kafka delivers events
+Reactive pipelines respond to events
+Non-blocking systems thrive on event-driven architecture
+
+ PART 9️⃣ — One-liners for Interviews
+
+✔ Netty avoids thread-per-request to eliminate blocking and context switching.
+✔ Event loops multiplex many connections on few threads using non-blocking IO.
+✔ Messages tell services what to do; events tell the system what already happened.
+
+If you want next:
+✔ Event loop vs Kafka consumer loop
+✔ Backpressure in WebFlux
+✔ Designing reactive payment system
+✔ Why CPU-bound tasks kill event loops
+
+Just say 👍

@@ -1,6 +1,6 @@
-In **Spring Boot**, **synchronous vs asynchronous requests** describe **how a request is processed and how the thread behaves** while waiting for work (DB, API calls, IO, etc.).
+In Spring Boot, synchronous vs asynchronous requests describe how a request is processed and how the thread behaves while waiting for work (DB, API calls, IO, etc.).
 
-I’ll explain this **from basics → internals → production usage → code examples → when to use what**, tailored for a **Java backend / system design perspective**.
+I’ll explain this from basics → internals → production usage → code examples → when to use what, tailored for a Java backend / system design perspective.
 
 ---
 
@@ -8,25 +8,25 @@ I’ll explain this **from basics → internals → production usage → code ex
 
 ### What it means
 
-A **synchronous request** is handled **step by step** on the **same thread**.
+A synchronous request is handled step by step on the same thread.
 
-* Client sends request
-* Server thread starts processing
-* Thread **waits (blocks)** for:
+Client sends request
+Server thread starts processing
+Thread waits (blocks) for:
 
-  * DB response
-  * External API
-  * File IO
-* Response is returned
-* Thread is released
+  DB response
+  External API
+  File IO
+Response is returned
+Thread is released
 
-➡️ **Thread is blocked until everything finishes**
+➡️ Thread is blocked until everything finishes
 
 ---
 
 ### Spring Boot default behavior
 
-By default, **Spring MVC is synchronous**.
+By default, Spring MVC is synchronous.
 
 ```
 Client → Controller → Service → Repository → DB
@@ -52,17 +52,17 @@ public class SyncController {
 
 ⏱️ If 100 users hit this endpoint:
 
-* 100 Tomcat threads are blocked
-* Thread pool can exhaust
-* Leads to **latency & downtime**
+100 Tomcat threads are blocked
+Thread pool can exhaust
+Leads to latency & downtime
 
 ---
 
 ### Thread behavior (Tomcat)
 
-* Uses **Thread-per-request model**
-* Default thread pool ~200
-* Blocking = poor scalability
+Uses Thread-per-request model
+Default thread pool ~200
+Blocking = poor scalability
 
 ---
 
@@ -79,18 +79,18 @@ public class SyncController {
 
 ### What it means
 
-The request **does not block the server thread**.
+The request does not block the server thread.
 
-* Server receives request
-* Work is handed off to:
+Server receives request
+Work is handed off to:
 
-  * Another thread
-  * Event loop
-  * Message queue
-* Original thread is **released**
-* Response is sent later
+  Another thread
+  Event loop
+  Message queue
+Original thread is released
+Response is sent later
 
-➡️ **Better scalability and throughput**
+➡️ Better scalability and throughput
 
 ---
 
@@ -102,9 +102,9 @@ The request **does not block the server thread**.
 
 ### How it works
 
-* Uses a **separate thread pool**
-* Controller thread returns immediately
-* Background thread does the work
+Uses a separate thread pool
+Controller thread returns immediately
+Background thread does the work
 
 ---
 
@@ -156,7 +156,7 @@ public class AsyncController {
 }
 ```
 
-🧠 **Tomcat thread is released immediately**
+🧠 Tomcat thread is released immediately
 
 ---
 
@@ -182,7 +182,7 @@ public Executor taskExecutor() {
 ✅ Email/SMS
 ✅ Fire-and-forget
 
-❌ Still **blocking inside async thread**
+❌ Still blocking inside async thread
 ❌ Not truly non-blocking IO
 
 ---
@@ -238,10 +238,10 @@ public Callable<String> asyncCall() {
 
 ### How it’s different
 
-* **Non-blocking IO**
-* Uses **event loop (Netty)**
-* No thread-per-request
-* Handles **millions of connections**
+Non-blocking IO
+Uses event loop (Netty)
+No thread-per-request
+Handles millions of connections
 
 ---
 
@@ -287,13 +287,13 @@ public Flux<User> getUsers() {
 
 ## 4️⃣ Comparison Table
 
-| Feature         | Synchronous | Async (`@Async`)    | WebFlux     |
-| --------------- | ----------- | ------------------- | ----------- |
-| Thread blocking | ✅ Yes       | ❌ Controller thread | ❌ No        |
-| Scalability     | ❌ Low       | ⚠ Medium            | ✅ Very High |
-| Complexity      | ✅ Simple    | ⚠ Medium            | ❌ High      |
-| Backpressure    | ❌ No        | ❌ No                | ✅ Yes       |
-| Best for        | CRUD        | Background jobs     | High load   |
+| Feature         | Synchronous | Async (`@Async`)      | WebFlux     |
+| --------------- | ----------- | -------------------   | ----------- |
+| Thread blocking | ✅ Yes      | ❌ Controller thread  | ❌ No        |
+| Scalability     | ❌ Low      | ⚠ Medium              | ✅ Very High |
+| Complexity      | ✅ Simple   | ⚠ Medium              | ❌ High      |
+| Backpressure    | ❌ No       | ❌ No                 | ✅ Yes       |
+| Best for        | CRUD        | Background jobs       | High load   |
 
 ---
 
@@ -337,14 +337,14 @@ Client → API → Kafka → Payment Service → DB
 
 ## 6️⃣ Interview Summary (One-liner)
 
-> **Synchronous requests block the server thread until completion, while asynchronous requests release the thread and process work in parallel or non-blocking ways, improving scalability and throughput.**
+> Synchronous requests block the server thread until completion, while asynchronous requests release the thread and process work in parallel or non-blocking ways, improving scalability and throughput.
 
 ---
 
 If you want, next I can explain:
-✔ **Async vs Reactive in interviews**
-✔ **Thread pool tuning in Spring Boot**
-✔ **Async REST API with job status tracking**
-✔ **Concurrency issues in async APIs**
+✔ Async vs Reactive in interviews
+✔ Thread pool tuning in Spring Boot
+✔ Async REST API with job status tracking
+✔ Concurrency issues in async APIs
 
 Just tell me 👍

@@ -45,8 +45,7 @@ Eureka is Netflix’s service registry used heavily in Spring Boot microservices
 
 When a service starts:
 
-```text
-inventory-service → Eureka Server
+```inventory-service → Eureka Server
 ```
 
 It sends:
@@ -62,8 +61,7 @@ Eureka stores it in memory.
 
 Every 30 seconds, service sends:
 
-```text
-"I'm alive"
+```"I'm alive"
 ```
 
 If heartbeats stop → instance is removed.
@@ -256,8 +254,7 @@ Inventory Pod
 
 If you try:
 
-```text
-Spring Boot + Eureka + Kubernetes
+```Spring Boot + Eureka + Kubernetes
 ```
 
 You get:

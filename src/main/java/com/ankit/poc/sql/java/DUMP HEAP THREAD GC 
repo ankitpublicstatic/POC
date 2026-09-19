@@ -1,0 +1,189 @@
+Step 4 — Database
+
+Check:
+
+SHOW PROCESSLIST;
+
+Look for:
+
+long-running queries
+locks
+missing indexes
+connection exhaustion
+deadlocks
+slow queries
+
+Use slow query logging / query plans.
+
+
+
+
+5. Taking a Heap Dump
+
+For a running JVM:
+
+jps -l 
+
+Example:
+
+12345 com.example.demo.DemoApplication
+
+Then:
+
+jmap -dump:live,format=b,file=heapdump.hprof 12345
+
+Or:
+
+jmap -dump:format=b,file=heapdump.hprof 12345
+
+Difference:
+
+live: requests a dump containing objects considered live after GC.
+
+Without live, more objects may be included.
+
+6. Better production approach — jcmd
+
+Modern JVMs commonly use:
+
+jcmd 12345 GC.heap_dump /tmp/heapdump.hprof
+
+You can first inspect:
+
+jcmd 12345 GC.heap_info
+
+Example:
+
+garbage-first heap   total 2048M, used 1850M
+7. Analyze Heap Dump
+
+Popular tools:
+
+Eclipse MAT
+VisualVM
+JProfiler
+YourKit
+
+For example, with Eclipse MAT you might see:
+
+Class                         Shallow Heap    Retained Heap
+
+byte[]                         1 MB           1.2 GB
+ArrayList                       24 B           1.2 GB
+HashMap                         48 B           500 MB
+String                          24 B           300 MB
+
+The important concept is:
+
+Shallow Heap
+
+Memory occupied by the object itself.
+
+Example:
+
+class User {
+
+    String name;
+    Address address;
+}
+
+The User object itself might consume only a few dozen bytes.
+
+8. Retained Heap
+
+Retained heap is much more important for leak investigation.
+
+Imagine:
+
+CACHE
+ |
+ +---- User
+ |      |
+ |      +---- Address
+ |      +---- String
+ |
+ +---- User
+        |
+        +---- Address
+
+If removing CACHE would make all those objects eligible for GC, then CACHE has a large retained heap.
+
+So when investigating memory leaks:
+
+Look at retained heap, not just shallow heap.
+
+
+
+=================
+21. Taking Thread Dump
+
+First:
+
+jps -l
+
+Then:
+
+jstack 12345
+
+Save it:
+
+jstack 2969 > threaddump.txt
+
+Modern JVM:
+
+jcmd 12345 Thread.print
+
+You can take multiple thread dumps:
+
+jstack PID > thread1.txt
+
+sleep 10
+
+jstack PID > thread2.txt
+
+sleep 10
+
+jstack PID > thread3.txt
+
+This is much more useful than taking only one.
+
+Why?
+
+Because you can compare:
+
+T1
+T2
+T3
+
+and see which threads remain stuck.
+
+
+
+29. Enable GC Logging — Java 17+
+
+For Java 17:
+
+-Xlog:gc*:file=gc.log:time,uptime,level,tags
+
+Example:
+
+java \
+-Xms2g \
+-Xmx4g \
+-Xlog:gc*:file=/var/log/app/gc.log:time,uptime,level,tags \
+-jar application.jar
+
+X → “eXtension” flag: a non‑standard but widely supported JVM option prefix.
+
+m → memory (heap size).
+
+s → start / initial heap size.
+
+x → maximum heap size.
+
+So:
+
+-Xms2g = set the initial (and minimum) Java heap to 2 GB.
+
+-Xmx4g = set the maximum Java heap to 4 GB.
+

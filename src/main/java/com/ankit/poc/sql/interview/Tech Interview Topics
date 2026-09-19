@@ -1,0 +1,1822 @@
+Absolutely. These are senior/techno-managerial interview topics, so I’ll explain them from three angles: concept → internal working → production/interview problem-solving, with Java/Spring Boot examples where relevant.
+
+1. Microservices + Fallback Mechanisms
+
+Microservices split a large application into independently deployable services.
+
+Example:
+
+                    API Gateway
+                         |
+          +--------------+--------------+
+          |              |              |
+     Order Service   Payment Service  Inventory Service
+          |              |              |
+        MySQL          Payment API      Redis/DB
+
+The biggest problem isn't creating microservices. It is handling failure between services.
+
+Suppose:
+
+Order → Payment → Bank API
+
+If Bank API takes 30 seconds, Payment becomes slow, then Order becomes slow, and eventually all request threads can get exhausted.
+
+This is called a cascading failure.
+
+Resilience mechanisms
+
+Typical production stack:
+
+Timeout
+   ↓
+Retry
+   ↓
+Circuit Breaker
+   ↓
+Bulkhead
+   ↓
+Rate Limiter
+   ↓
+Fallback
+
+Timeout
+
+Never allow an external call to wait indefinitely.
+
+java
+HttpClient timeout = 2 seconds;
+
+Example:
+
+Payment service
+     |
+     | timeout = 2 sec
+     ↓
+Bank API
+
+If bank doesn't respond within 2 seconds:
+
+Payment → TIMEOUT
+
+instead of:
+
+Payment → waiting → waiting → waiting → thread exhausted
+
+
+Retry
+
+Useful for transient failures.
+
+For example:
+
+Request 1 → timeout
+Request 2 → success
+
+But don't blindly retry.
+
+Bad:
+
+POST payment
+POST payment
+POST payment
+
+You could charge the customer three times.
+
+Use retries mainly for:
+
+- network failures
+- temporary 5xx
+- connection failures
+
+And preferably use idempotency keys for business operations.
+
+
+Circuit Breaker
+
+Circuit breaker protects your system from an unhealthy dependency.
+
+States:
+
+             failures exceed threshold
+ CLOSED ----------------------------> OPEN
+   ↑                                  |
+   |                                  |
+   | successful test                  |
+   |                                  ↓
+   +---------------------------- HALF_OPEN
+
+CLOSED
+
+Normal operation.
+
+Request → Payment
+Request → Payment
+Request → Payment
+
+Failures are counted.
+
+Suppose:
+
+failure rate > 50%
+
+Circuit opens.
+
+OPEN
+
+Requests don't even go to Payment.
+
+Order
+  |
+  X
+Payment
+
+Instead:
+
+Order → fallback()
+
+This prevents unnecessary load.
+
+HALF_OPEN
+
+After a configured wait period:
+
+OPEN
+ ↓
+HALF_OPEN
+ ↓
+send a few test requests
+
+If successful:
+
+HALF_OPEN → CLOSED
+
+If failures continue:
+
+HALF_OPEN → OPEN
+
+
+Resilience4j
+
+For Spring Boot, Resilience4j is commonly used.
+
+Typical dependency:
+
+xml
+<dependency>
+    <groupId>io.github.resilience4j</groupId>
+    <artifactId>resilience4j-spring-boot3</artifactId>
+</dependency>
+
+Example:
+
+java
+@CircuitBreaker(
+        name = "paymentService",
+        fallbackMethod = "paymentFallback"
+)
+public PaymentResponse makePayment(PaymentRequest request) {
+
+    return paymentClient.pay(request);
+}
+
+Fallback:
+
+java
+public PaymentResponse paymentFallback(
+        PaymentRequest request,
+        Throwable throwable) {
+
+    return PaymentResponse.pending(
+            "Payment service temporarily unavailable"
+    );
+}
+
+Configuration:
+
+yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      paymentService:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+
+
+Bulkhead
+
+Bulkhead isolates resources.
+
+Suppose your application has 100 threads.
+
+Without isolation:
+
+Payment calls → 80 threads
+Order DB     → 10 threads
+Other APIs   → 10 threads
+
+Payment failure can consume all threads.
+
+With bulkhead:
+
+Payment → max 20 threads
+Inventory → max 20
+Other → remaining
+
+Payment can't destroy the whole application.
+
+
+Rate Limiter
+
+Protects service from excessive requests.
+
+Example:
+
+100 requests/sec
+
+If client sends:
+
+500 requests/sec
+
+only allowed requests proceed.
+
+Common implementation:
+
+API Gateway
+    ↓
+Redis Rate Limiter
+    ↓
+Microservice
+
+
+Other resilience tools
+
+| Mechanism | Purpose |
+|---|---|
+| Timeout | Stop waiting forever |
+| Retry | Handle transient failures |
+| Circuit Breaker | Stop calling unhealthy dependency |
+| Bulkhead | Isolate resources |
+| Rate Limiter | Control traffic |
+| Fallback | Provide alternative response |
+| Cache | Avoid dependency calls |
+| Async messaging | Decouple services |
+
+
+2. Kafka vs SQS vs RabbitMQ
+
+These are not interchangeable.
+
+Kafka
+
+Kafka is primarily a distributed event streaming platform.
+
+Architecture:
+
+Producer
+   |
+   ↓
+ Kafka Topic
+   |
+   +---- Partition 0
+   +---- Partition 1
+   +---- Partition 2
+   |
+   ↓
+Consumer Group
+
+Example:
+
+Order Service
+     |
+     | OrderCreated
+     ↓
+Kafka
+     |
+     +---- Payment Service
+     |
+     +---- Notification Service
+     |
+     +---- Analytics Service
+
+Kafka stores messages for a configured retention period.
+
+Therefore consumers can replay old events.
+
+
+Kafka partition
+
+Suppose:
+
+orders topic
+
+Partition 0
+Partition 1
+Partition 2
+
+Kafka uses partitioning to scale consumption.
+
+Within a partition, ordering is maintained.
+
+For example:
+
+order-123 → partition 1
+
+Created
+Paid
+Shipped
+Delivered
+
+The same key should generally map to the same partition if ordering matters.
+
+
+Consumer groups
+
+Suppose:
+
+Topic:
+P0 P1 P2
+
+Consumer group:
+C1 C2 C3
+
+Kafka distributes partitions among consumers.
+
+P0 → C1
+P1 → C2
+P2 → C3
+
+This gives parallel processing.
+
+
+AWS SQS
+
+SQS is a managed message queue.
+
+Typical:
+
+Producer
+   ↓
+SQS
+   ↓
+Consumer
+
+Important concept:
+
+Visibility timeout
+
+When consumer receives a message:
+
+message
+   ↓
+invisible temporarily
+
+Consumer processes it.
+
+If successful:
+
+delete message
+
+If consumer crashes:
+
+visibility timeout expires
+       ↓
+message becomes visible
+       ↓
+another consumer processes it
+
+Therefore consumers should be idempotent.
+
+
+RabbitMQ
+
+RabbitMQ is a traditional message broker.
+
+Architecture:
+
+Producer
+   ↓
+Exchange
+   ↓
+Queue
+   ↓
+Consumer
+
+Exchange types include:
+
+Direct
+Topic
+Fanout
+Headers
+
+Example:
+
+OrderCreated
+     ↓
+Topic Exchange
+     |
+     +---- payment.queue
+     |
+     +---- notification.queue
+
+
+Kafka vs RabbitMQ vs SQS
+
+| Feature | Kafka | RabbitMQ | SQS |
+|---|---|---|---|
+| Main model | Event streaming | Message broker | Managed queue |
+| Replay | Excellent | Limited/config-dependent | Limited |
+| Ordering | Per partition | Queue-level | FIFO available |
+| Scaling | Excellent | Good | Excellent |
+| Managed | No | No | AWS managed |
+| Event streaming | Excellent | Not primary | No |
+| Cloud integration | Good | Good | Excellent AWS |
+| Best for | Events/analytics | Task routing | Async workloads |
+
+Interview answer:
+
+> "I would choose Kafka when I need high-throughput event streaming, replay and multiple independent consumers. RabbitMQ when I need sophisticated routing and traditional messaging semantics. SQS when I want a simple highly available managed queue, particularly in AWS."
+
+
+3. Multithreading in Java
+
+A thread is an independent execution path.
+
+Example:
+
+java
+Thread thread = new Thread(() -> {
+    System.out.println("Running");
+});
+
+thread.start();
+
+Important:
+
+java
+thread.start();
+
+creates a new thread.
+
+This:
+
+java
+thread.run();
+
+does not create a new thread. It executes in the current thread.
+
+
+ExecutorService
+
+Don't manually create thousands of threads.
+
+Prefer:
+
+java
+ExecutorService executor =
+        Executors.newFixedThreadPool(10);
+
+executor.submit(() -> {
+    processOrder();
+});
+
+Why?
+
+Because thread creation is expensive.
+
+Thread pool:
+
+Tasks
+ ↓
+Queue
+ ↓
+Thread Pool
+ ├── T1
+ ├── T2
+ ├── T3
+ └── T4
+
+
+CompletableFuture
+
+Useful for parallel operations.
+
+Suppose:
+
+Get user
+Get orders
+Get recommendations
+
+Sequential:
+
+100ms + 200ms + 300ms = 600ms
+
+Parallel:
+
+max(100,200,300) = 300ms
+
+Example:
+
+java
+CompletableFuture<User> user =
+        CompletableFuture.supplyAsync(this::getUser);
+
+CompletableFuture<List<Order>> orders =
+        CompletableFuture.supplyAsync(this::getOrders);
+
+CompletableFuture<Result> result =
+        user.thenCombine(
+                orders,
+                Result::new
+        );
+
+In production, provide your own executor:
+
+java
+ExecutorService executor =
+        Executors.newFixedThreadPool(20);
+
+CompletableFuture.supplyAsync(
+        this::getUser,
+        executor
+);
+
+
+Common multithreading interview problem
+
+Print odd/even numbers using two threads.
+
+Concept:
+
+Thread 1 → odd
+Thread 2 → even
+
+Use:
+
+java
+synchronized
+wait()
+notify()
+
+Example:
+
+java
+class NumberPrinter {
+
+    private int number = 1;
+    private final int limit = 10;
+
+    public synchronized void printOdd()
+            throws InterruptedException {
+
+        while (number <= limit) {
+
+            while (number % 2 == 0) {
+                wait();
+            }
+
+            System.out.println(number++);
+            notify();
+        }
+    }
+
+    public synchronized void printEven()
+            throws InterruptedException {
+
+        while (number <= limit) {
+
+            while (number % 2 != 0) {
+                wait();
+            }
+
+            System.out.println(number++);
+            notify();
+        }
+    }
+}
+
+ 
+5. HashMap Internal Working
+
+This is a must-know Java interview topic.
+
+HashMap internally uses:
+
+array of buckets
++
+linked list / tree
+
+Conceptually:
+
+HashMap
+   |
+   +-- bucket 0
+   +-- bucket 1
+   +-- bucket 2
+   +-- bucket 3
+
+When:
+
+java
+map.put("Ankit", 100);
+
+Java calculates:
+
+hashCode()
+     ↓
+hash transformation
+     ↓
+bucket index
+
+Conceptually:
+
+index = hash & (n - 1)
+
+where `n` is table size.
+
+
+Collision
+
+Suppose:
+
+key A → bucket 5
+key B → bucket 5
+
+Collision.
+
+Historically:
+
+bucket 5
+   ↓
+Node A → Node B → Node C
+
+In modern Java HashMap, when a bucket becomes sufficiently collision-heavy, the bucket can be converted into a red-black tree, improving lookup in that bucket from roughly O(n) to O(log n).
+
+
+HashMap put
+
+Conceptually:
+
+put(key,value)
+    ↓
+calculate hash
+    ↓
+calculate bucket
+    ↓
+bucket empty?
+   /      \
+ yes       no
+ ↓          ↓
+insert    compare keys
+             ↓
+          collision
+             ↓
+      list/tree insertion
+
+
+Load factor
+
+Default load factor is:
+
+0.75
+
+If:
+
+capacity = 16
+
+threshold roughly:
+
+16 × 0.75 = 12
+
+When size crosses the threshold, HashMap resizes.
+
+Usually capacity grows approximately 2×.
+
+16 → 32 → 64 → 128
+
+Resizing is expensive, so if you know approximate size, initialize appropriately.
+
+
+Why HashMap isn't thread-safe
+
+Two threads can modify the map concurrently.
+
+Use:
+
+java
+ConcurrentHashMap
+
+instead of:
+
+java
+HashMap
+
+for concurrent access.
+
+
+Hashtable
+
+`Hashtable` is an older synchronized map implementation.
+
+java
+Hashtable<K,V>
+
+Compared with HashMap:
+
+| | HashMap | Hashtable |
+|---|---|---|
+| Thread safe | No | Yes |
+| Null key | Allowed | No |
+| Null value | Allowed | No |
+| Modern usage | Common | Legacy |
+
+For modern concurrent applications, prefer:
+
+java
+ConcurrentHashMap
+
+rather than Hashtable.
+
+
+LinkedHashMap
+
+LinkedHashMap maintains predictable iteration order using an additional linked structure.
+
+Conceptually:
+
+Hash table
+
+bucket
+  ↓
+nodes
+
+Also:
+
+A ↔ B ↔ C ↔ D
+
+Therefore it can maintain:
+
+Insertion order
+
+It can also be configured for:
+
+Access order
+
+This is useful for implementing an LRU cache.
+
+
+LinkedList
+
+LinkedList uses nodes:
+
+Node
++-------+
+| data  |
+| next  |
+| prev  |
++-------+
+
+Example:
+
+A ⇄ B ⇄ C ⇄ D
+
+Random access:
+
+java
+list.get(5000)
+
+is O(n), unlike ArrayList's O(1) random access.
+
+
+ArrayList vs LinkedList
+
+| Operation | ArrayList | LinkedList |
+|---|---:|---:|
+| get(index) | O(1) | O(n) |
+| append | O(1) | O(1) |
+| insert middle | O(n) | O(n) |
+| memory | Lower | Higher |
+| cache locality | Better | Worse |
+
+In real applications, ArrayList is often preferable even when LinkedList theoretically has cheaper insertion, because of CPU cache locality and object overhead.
+
+
+6. Implement Custom LinkedList
+
+java
+class CustomLinkedList<T> {
+
+    private Node<T> head;
+    private Node<T> tail;
+    private int size;
+
+    private static class Node<T> {
+
+        T data;
+        Node<T> next;
+
+        Node(T data) {
+            this.data = data;
+        }
+    }
+
+    public void add(T data) {
+
+        Node<T> node = new Node<>(data);
+
+        if (head == null) {
+            head = tail = node;
+        } else {
+            tail.next = node;
+            tail = node;
+        }
+
+        size++;
+    }
+
+    public T get(int index) {
+
+        if (index < 0 || index >= size) {
+            throw new IndexOutOfBoundsException();
+        }
+
+        Node<T> current = head;
+
+        for (int i = 0; i < index; i++) {
+            current = current.next;
+        }
+
+        return current.data;
+    }
+
+    public int size() {
+        return size;
+    }
+}
+
+Usage:
+
+java
+CustomLinkedList<Integer> list =
+        new CustomLinkedList<>();
+
+list.add(10);
+list.add(20);
+list.add(30);
+
+System.out.println(list.get(1));
+
+Output:
+
+20
+
+
+7. Java Stream API Interview Problems
+
+Suppose:
+
+java
+List<Employee> employees;
+
+Employee:
+
+java
+class Employee {
+    private Long id;
+    private String name;
+    private String department;
+    private double salary;
+}
+
+
+Filtering
+
+Employees earning > 100000:
+
+java
+List<Employee> result =
+        employees.stream()
+                .filter(e -> e.getSalary() > 100000)
+                .toList();
+
+
+Sorting
+
+Ascending:
+
+java
+employees.stream()
+        .sorted(
+            Comparator.comparing(Employee::getSalary)
+        )
+        .toList();
+
+Descending:
+
+java
+employees.stream()
+        .sorted(
+            Comparator.comparing(
+                Employee::getSalary
+            ).reversed()
+        )
+        .toList();
+
+
+Sort by multiple fields
+
+java
+employees.stream()
+        .sorted(
+            Comparator.comparing(Employee::getDepartment)
+                .thenComparing(Employee::getSalary)
+        )
+        .toList();
+
+
+Grouping
+
+Employees by department:
+
+java
+Map<String, List<Employee>> result =
+        employees.stream()
+                .collect(
+                    Collectors.groupingBy(
+                        Employee::getDepartment
+                    )
+                );
+
+Result:
+
+IT       → [E1,E2,E3]
+Finance  → [E4,E5]
+HR       → [E6]
+
+
+Group and count
+
+java
+Map<String, Long> count =
+        employees.stream()
+                .collect(
+                    Collectors.groupingBy(
+                        Employee::getDepartment,
+                        Collectors.counting()
+                    )
+                );
+
+
+Highest salary per department
+
+java
+Map<String, Optional<Employee>> result =
+        employees.stream()
+                .collect(
+                    Collectors.groupingBy(
+                        Employee::getDepartment,
+                        Collectors.maxBy(
+                            Comparator.comparing(
+                                Employee::getSalary
+                            )
+                        )
+                    )
+                );
+
+
+List → Map
+
+java
+Map<Long, Employee> map =
+        employees.stream()
+                .collect(
+                    Collectors.toMap(
+                        Employee::getId,
+                        Function.identity()
+                    )
+                );
+
+If duplicate IDs are possible:
+
+java
+Collectors.toMap(
+    Employee::getId,
+    Function.identity(),
+    (existing, replacement) -> replacement
+)
+
+This is a common interview trap.
+
+
+Map → List
+
+java
+List<Employee> employees =
+        map.values()
+           .stream()
+           .toList();
+
+Keys:
+
+java
+List<Long> ids =
+        map.keySet()
+           .stream()
+           .toList();
+
+
+Reverse a list
+
+java
+List<Integer> result =
+        numbers.stream()
+               .sorted(Comparator.reverseOrder())
+               .toList();
+
+For simply reversing an existing mutable list:
+
+java
+Collections.reverse(numbers);
+
+
+8. Stock Market Problems
+
+Classic problem:
+
+prices = [7,1,5,3,6,4]
+
+Buy low and sell later for maximum profit.
+
+Answer:
+
+Buy = 1
+Sell = 6
+
+Profit = 5
+
+Don't do nested loops:
+
+O(n²)
+
+Use one pass:
+
+java
+public int maxProfit(int[] prices) {
+
+    int minPrice = Integer.MAX_VALUE;
+    int maxProfit = 0;
+
+    for (int price : prices) {
+
+        minPrice = Math.min(minPrice, price);
+
+        maxProfit = Math.max(
+                maxProfit,
+                price - minPrice
+        );
+    }
+
+    return maxProfit;
+}
+
+Complexity:
+
+Time = O(n)
+Space = O(1)
+
+
+Return buy and sell days
+
+java
+public int[] maxProfitDays(int[] prices) {
+
+    int minPrice = Integer.MAX_VALUE;
+    int buyDay = -1;
+
+    int bestBuy = -1;
+    int bestSell = -1;
+    int maxProfit = 0;
+
+    for (int i = 0; i < prices.length; i++) {
+
+        if (prices[i] < minPrice) {
+            minPrice = prices[i];
+            buyDay = i;
+        }
+
+        int profit = prices[i] - minPrice;
+
+        if (profit > maxProfit) {
+            maxProfit = profit;
+            bestBuy = buyDay;
+            bestSell = i;
+        }
+    }
+
+    return new int[]{
+            bestBuy,
+            bestSell,
+            maxProfit
+    };
+}
+
+For:
+
+[7,1,5,3,6,4]
+
+result:
+
+Buy day  = 1
+Sell day = 4
+Profit   = 5
+
+
+9. Authentication Mechanisms
+
+Important distinction:
+
+Authentication = Who are you?
+
+Authorization = What are you allowed to do?
+
+Common authentication mechanisms:
+
+Username/password
+
+User → username/password → server
+
+Password should never be stored directly.
+
+Use:
+
+Argon2
+bcrypt
+PBKDF2
+
+with salt.
+
+
+Session-based authentication
+
+Login
+ ↓
+Server validates
+ ↓
+Session created
+ ↓
+Session ID cookie
+ ↓
+Browser sends cookie
+
+Server stores session:
+
+sessionId → user
+
+
+JWT
+
+Login
+ ↓
+Access token
+ ↓
+Authorization: Bearer <token>
+
+JWT contains claims:
+
+json
+{
+  "sub": "123",
+  "roles": ["USER"],
+  "exp": 123456789
+}
+
+JWT is usually signed.
+
+Important:
+
+> JWT being encoded does not mean encrypted.
+
+Don't put secrets/passwords in JWT claims.
+
+
+OAuth 2.0
+
+OAuth is primarily an authorization framework.
+
+Example:
+
+Application
+    ↓
+Google/Microsoft authorization
+    ↓
+Access token
+    ↓
+Application accesses permitted resource
+
+For user login, OpenID Connect (OIDC) builds an authentication layer on top of OAuth 2.0.
+
+
+10. SSO Login Flow
+
+SSO means:
+
+Login once
+   ↓
+access multiple applications
+
+Example:
+
+User
+ |
+ ↓
+Application
+ |
+ ↓
+Identity Provider
+ |
+ | authentication
+ ↓
+Token
+ |
+ ↓
+Application
+
+Identity providers can include:
+
+- Microsoft Entra ID
+- Okta
+- Keycloak
+- Auth0
+- Google
+
+
+Microsoft SSO
+
+Typical enterprise flow:
+
+Browser
+   ↓
+Your Application
+   ↓
+Microsoft Entra ID
+   ↓
+User authentication
+   ↓
+Authorization code
+   ↓
+Application backend
+   ↓
+Token exchange
+   ↓
+ID token / Access token
+
+Usually use:
+
+OIDC
+
+for application login.
+
+The application validates:
+
+issuer
+audience
+signature
+expiration
+nonce/state as applicable
+
+
+Custom SSO
+
+Suppose company has:
+
+SSO Service
+
+and:
+
+Application A
+Application B
+Application C
+
+Flow:
+
+User
+ ↓
+Application A
+ ↓
+SSO
+ ↓
+Login
+ ↓
+SSO creates authorization response
+ ↓
+Application A
+
+If user opens Application B:
+
+Application B
+ ↓
+SSO
+ ↓
+existing SSO session
+ ↓
+no login required
+
+
+Third-party authentication
+
+Examples:
+
+Login with Google
+Login with Microsoft
+Login with GitHub
+
+Generally:
+
+Your app
+   ↓
+Identity provider
+   ↓
+Consent/login
+   ↓
+Authorization code
+   ↓
+Your backend
+   ↓
+Token endpoint
+   ↓
+Identity information
+
+For modern browser applications, prefer Authorization Code + PKCE where appropriate.
+
+
+11. Java Deadlock
+
+Deadlock occurs when threads wait forever for each other's locks.
+
+Example:
+
+Thread A:
+Lock A
+ ↓
+waiting for Lock B
+
+Thread B:
+Lock B
+ ↓
+waiting for Lock A
+
+Diagram:
+
+Thread A → Lock A → waiting → Lock B
+                                  ↑
+                                  |
+Thread B → Lock B → waiting → Lock A
+
+Java example:
+
+java
+Object lock1 = new Object();
+Object lock2 = new Object();
+
+Thread t1 = new Thread(() -> {
+
+    synchronized (lock1) {
+
+        synchronized (lock2) {
+            System.out.println("T1");
+        }
+    }
+});
+
+Thread t2 = new Thread(() -> {
+
+    synchronized (lock2) {
+
+        synchronized (lock1) {
+            System.out.println("T2");
+        }
+    }
+});
+
+Potential deadlock.
+
+
+How to prevent Java deadlock
+
+1. Consistent lock ordering
+
+Always:
+
+Lock A
+ ↓
+Lock B
+
+Never:
+
+Thread 1: A → B
+
+Thread 2: B → A
+
+
+2. TryLock
+
+Using `ReentrantLock`:
+
+java
+if (lock.tryLock(2, TimeUnit.SECONDS)) {
+
+    try {
+        // work
+    } finally {
+        lock.unlock();
+    }
+}
+
+If lock can't be obtained:
+
+don't wait forever
+
+
+Detect deadlock
+
+Use:
+
+bash
+jstack <pid>
+
+JVM can report deadlocked threads.
+
+Also use:
+
+JFR
+VisualVM
+Mission Control
+APM tools
+
+
+12. MySQL Deadlock
+
+Database deadlock is similar conceptually.
+
+Example:
+
+Transaction 1:
+
+sql
+BEGIN;
+
+UPDATE account
+SET balance = balance - 100
+WHERE id = 1;
+
+-- waits for account 2
+
+Transaction 2:
+
+sql
+BEGIN;
+
+UPDATE account
+SET balance = balance - 100
+WHERE id = 2;
+
+-- waits for account 1
+
+Then:
+
+T1 holds row 1 → waits row 2
+
+T2 holds row 2 → waits row 1
+
+MySQL detects the deadlock and normally rolls back one transaction.
+
+
+How to diagnose MySQL deadlock
+
+Run:
+
+sql
+SHOW ENGINE INNODB STATUS;
+
+Look for:
+
+LATEST DETECTED DEADLOCK
+
+Also inspect:
+
+sql
+SHOW PROCESSLIST;
+
+and appropriate performance/transaction metadata.
+
+
+How to prevent MySQL deadlock
+
+1. Consistent ordering
+
+Always update:
+
+account 1
+then
+account 2
+
+Never sometimes:
+
+account 1 → account 2
+
+and elsewhere:
+
+account 2 → account 1
+
+
+2. Keep transactions short
+
+Bad:
+
+BEGIN
+
+call external API
+wait 10 seconds
+update DB
+
+COMMIT
+
+Don't keep DB transactions open while calling external systems.
+
+Better:
+
+validate
+ ↓
+external work
+ ↓
+short DB transaction
+ ↓
+commit
+
+
+3. Proper indexes
+
+Missing indexes can cause larger lock footprints and longer transactions.
+
+
+4. Retry deadlock
+
+Deadlocks can still happen in highly concurrent systems.
+
+Application should retry the transaction when the database reports a retryable deadlock/serialization failure.
+
+Typical pattern:
+
+transaction
+   ↓
+deadlock?
+   ↓
+yes
+   ↓
+short backoff
+   ↓
+retry
+
+Don't retry indefinitely.
+
+
+13. Microservice Migration
+
+This is another important senior-level topic.
+
+Suppose you have:
+
+Monolith
+   |
+   +-- User
+   +-- Order
+   +-- Payment
+   +-- Inventory
+
+You want:
+
+User Service
+Order Service
+Payment Service
+Inventory Service
+
+Don't rewrite everything at once.
+
+Use the Strangler Fig pattern.
+
+
+Strangler Migration
+
+Initially:
+
+Client
+ ↓
+Monolith
+
+Extract one capability:
+
+Client
+ ↓
+Gateway
+ ├── /users → User Service
+ └── everything else → Monolith
+
+Then:
+
+Client
+ ↓
+Gateway
+ ├── users → User Service
+ ├── inventory → Inventory Service
+ └── everything else → Monolith
+
+Eventually:
+
+Monolith
+ ↓
+retired
+
+
+Migration steps
+
+Step 1 — Identify bounded contexts
+
+Don't split based purely on database tables.
+
+Look for business capabilities:
+
+Order
+Payment
+Inventory
+Customer
+Notification
+
+
+Step 2 — Define API contracts
+
+For example:
+
+http
+POST /orders
+GET /orders/{id}
+
+Use:
+
+OpenAPI
+contract testing
+versioning
+
+
+Step 3 — Extract service
+
+Create:
+
+Order Service
+
+
+Step 4 — Database ownership
+
+Very important:
+
+> Each microservice should ideally own its data.
+
+Instead of:
+
+All services
+    ↓
+One shared DB
+
+move toward:
+
+Order Service → Order DB
+
+Payment Service → Payment DB
+
+Inventory Service → Inventory DB
+
+
+Distributed transaction problem
+
+Suppose:
+
+Order
+Payment
+Inventory
+
+You can't simply use:
+
+@Transactional
+
+across independent microservices.
+
+Instead consider:
+
+Saga Pattern
+
+Example:
+
+Create Order
+   ↓
+Reserve Inventory
+   ↓
+Take Payment
+   ↓
+Confirm Order
+
+If Payment fails:
+
+Release Inventory
+ ↓
+Cancel Order
+
+These are compensating actions.
+
+
+Database migration
+
+For a large production database, avoid:
+
+Stop application
+ ↓
+move huge DB
+ ↓
+start application
+
+Instead use:
+
+Dual write / CDC
+        ↓
+Backfill
+        ↓
+Validate
+        ↓
+Shadow reads
+        ↓
+Gradual traffic switch
+        ↓
+Old system retirement
+
+CDC tools can capture database changes and replicate them to another store.
+
+
+Zero-downtime migration
+
+A mature migration might look like:
+
+                ┌───────────────┐
+                │ Old Monolith  │
+                └───────┬───────┘
+                        │
+Client → Gateway ───────┼──────→ Old
+                        │
+                        └──────→ New Service
+
+Initially:
+
+100% old
+
+Then:
+
+95% old
+5% new
+
+Then:
+
+50% old
+50% new
+
+Then:
+
+100% new
+
+Use:
+
+feature flags
+canary deployment
+traffic splitting
+metrics
+rollback
+
+
+How I would answer these in a Senior Interview
+
+A strong answer isn't just:
+
+> "I know Resilience4j."
+
+Instead say:
+
+> "For synchronous microservice communication, I normally combine strict timeouts with controlled retries, circuit breakers and bulkheads. The exact combination depends on whether the failure is transient and whether the operation is idempotent. For critical operations such as payments, I avoid blindly retrying and use idempotency keys. For long-running workflows, I prefer asynchronous Kafka/SQS-based processing and Saga-style compensation."
+
+For a slow production service:
+
+> "First I establish whether the latency is application, database, downstream, JVM or infrastructure related. I check p50/p95/p99 latency, request rate, error rate, CPU, memory, GC, thread pools, connection pools, database latency and downstream latency. I then use thread dumps, heap/GC analysis and traces to identify the bottleneck. I avoid increasing thread pools blindly because if the bottleneck is a database or downstream service, that can make the incident worse."
+
+For microservice migration:
+
+> "I would avoid a big-bang rewrite. I'd identify bounded contexts, extract one capability using the Strangler pattern, establish API contracts, give the new service ownership of its data, use CDC/backfill where required, and gradually shift traffic using feature flags or canary deployment. For cross-service workflows I'd use Saga or event-driven coordination rather than distributed database transactions."
+
+These three answers demonstrate architecture + Java + production troubleshooting + engineering judgment, which is what senior panels generally look for.

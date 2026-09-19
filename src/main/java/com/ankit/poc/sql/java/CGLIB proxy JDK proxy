@@ -17,8 +17,7 @@ I’ll explain this in **layers**:
 
 A **proxy** is an **object that wraps another object** and intercepts method calls.
 
-```text
-Caller → Proxy → Target Object
+```Caller → Proxy → Target Object
 ```
 
 Spring uses proxies for:
@@ -163,8 +162,7 @@ No interface required.
 
 ### Default rule
 
-```text
-If interface exists → JDK Proxy
+```If interface exists → JDK Proxy
 Else → CGLIB
 ```
 
@@ -206,8 +204,7 @@ class OrderService {
 
 Call path:
 
-```text
-this.placeOrder() → this.saveOrder()
+```this.placeOrder() → this.saveOrder()
 ```
 
 ❌ Proxy is bypassed

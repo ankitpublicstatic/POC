@@ -60,8 +60,7 @@ buffer.memory=33554432
 
 If `buffer.memory` is full:
 
-```text
-send() blocks or throws TimeoutException
+```send() blocks or throws TimeoutException
 ```
 
 ➡️ This is backpressure
@@ -85,8 +84,7 @@ If quota exceeded:
 
 Example:
 
-```text
-Throttling quota violated → request delayed by 500ms
+```Throttling quota violated → request delayed by 500ms
 ```
 
 ---
@@ -236,8 +234,7 @@ Use cases:
 
 For messages that fail processing:
 
-```text
-main-topic  → consumer → error-topic (DLT)
+```main-topic  → consumer → error-topic (DLT)
 ```
 
 Later:
@@ -254,8 +251,7 @@ If a cluster is lost:
  Use MirrorMaker 2
  Or Confluent Replicator
 
-```text
-Primary Cluster → DR Cluster
+```Primary Cluster → DR Cluster
 ```
 
 ---
@@ -348,8 +344,7 @@ Consumer lag =
 
 > *How far behind a consumer is from the latest message in the topic.*
 
-```text
-Lag = Log End Offset − Consumer Offset
+```Lag = Log End Offset − Consumer Offset
 ```
 
 ### Example
@@ -419,8 +414,7 @@ Kafka is a **log-based streaming platform**.
 * Consumers pull at their own speed
 * Messages accumulate safely
 
-```text
-Producer → Kafka (disk) → Consumer (slow)
+```Producer → Kafka (disk) → Consumer (slow)
 ```
 
 ### Characteristics
@@ -451,8 +445,7 @@ RabbitMQ is a **queue-based messaging broker**.
 * Messages stay in memory
 * If queues fill up → producers blocked
 
-```text
-Producer → Queue (memory) → Consumer
+```Producer → Queue (memory) → Consumer
 ```
 
 ### Characteristics
@@ -499,8 +492,7 @@ This is **real-world system design**.
 
 > More partitions = more parallelism
 
-```text
-Producers → Partitions → Consumers
+```Producers → Partitions → Consumers
 ```
 
 Example:
@@ -570,8 +562,7 @@ fetch.max.wait.ms=50
 
 ## 🔹 Step 5: Failure Handling
 
-```text
-Main Topic → Consumer → DLT
+```Main Topic → Consumer → DLT
 ```
 
 * Retry topic
@@ -617,8 +608,7 @@ This is **frequently misunderstood**.
 
 ### Example
 
-```text
-Order ID = 101
+```Order ID = 101
 Payment charged twice
 ```
 
@@ -650,8 +640,7 @@ Kafka uses:
 
 ### Example
 
-```text
-Order → Payment → Inventory → Offset commit
+```Order → Payment → Inventory → Offset commit
 (All atomic)
 ```
 

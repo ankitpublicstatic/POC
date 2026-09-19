@@ -8,6 +8,7 @@
 // Input : "AABBBCBBAC"
 //
 // Output : 3
+package com.ankit.poc.abc;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,9 +19,23 @@ public class Main {
 
   public static void main(String[] args) {
 
-    String input = "AABBBCBBAC";
+    System.out.println(findSmallestSubstring("AABBBCBBAC"));
+  }
 
-    System.out.println(findSmallestSubstring(input));
+  public static void removeDuplicate() {
+    StringBuilder builder = new StringBuilder("AABBBCCDD");
+
+    for (int i = 1; i < builder.length(); i++) {
+      if (builder.charAt(i) == builder.charAt(i - 1)) {
+        builder.deleteCharAt(i);
+        if ("ABBCCDD".equalsIgnoreCase(builder.toString())) {
+
+        } else {
+          System.out.println(builder);
+        }
+        i = 1;
+      }
+    }
   }
 
   public static int findSmallestSubstring(String str) {

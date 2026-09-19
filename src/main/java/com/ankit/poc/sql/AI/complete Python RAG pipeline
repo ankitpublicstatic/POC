@@ -47,8 +47,7 @@ multi_rag_pipeline/
 
 ## 🧾 requirements.txt
 
-```text
-langchain
+```langchain
 pinecone-client
 sentence-transformers
 rank-bm25
@@ -499,8 +498,7 @@ Here’s how to **finish the full system** — we’ll layer on:
 
 Add these to `requirements.txt`:
 
-```text
-redis
+```redis
 python-jose
 passlib[bcrypt]
 ```
@@ -516,8 +514,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
-import asyncio, os, redis
+from passlib.context import CryptConimport asyncio, os, redis
 from rag_pipeline import build_multi_rag, query_multi_rag
 
 # ====================================================
@@ -2191,8 +2188,7 @@ You’ll be able to track:
 
 Add to your `requirements.txt`:
 
-```text
-prometheus-client
+```prometheus-client
 ```
 
 ---
@@ -2209,8 +2205,7 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 from starlette.responses import Response
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
-from pydantic import BaseModel
+from passlib.context import CryptConfrom pydantic import BaseModel
 import asyncio, os, redis, time
 from rag_pipeline import build_multi_rag, query_multi_rag
 
@@ -2652,8 +2647,7 @@ This lets you keep AWS-native billing/alerting dashboards in sync with what Graf
 
 Add this to your `requirements.txt`:
 
-```text
-boto3
+```boto3
 ```
 
 Make sure your ECS task role (or local AWS credentials) has:
@@ -3548,8 +3542,7 @@ def lambda_handler(event, context):
             thread_ts = response["Items"][0]["thread_ts"]
             first_seen = response["Items"][0].get("first_seen", now)
 
-        # Build mention text
-        mention = ""
+        # Build mention         mention = ""
         if state == "ALARM":
             mention = ALERT_USER
             if first_seen and now - first_seen > ESCALATE_AFTER_S:
@@ -8092,8 +8085,7 @@ PAGES = {
 print("Downloading HTML documentation ...")
 for name, url in PAGES.items():
     try:
-        html = requests.get(url, timeout=40).text
-        soup = BeautifulSoup(html, "html.parser")
+        html = requests.get(url, timeout=40).        soup = BeautifulSoup(html, "html.parser")
         text = soup.get_text(" ", strip=True)
         out_file = f"{BASE}/html/{name}.html"
         open(out_file, "w", encoding="utf-8").write(text)
@@ -8168,8 +8160,7 @@ This will create real documentation and code under:
 
 ```
 multi-rag-testdata/data/
- ├─ html/         # Real docs text
- ├─ code/java/    # Spring examples
+ ├─ html/         # Real docs  ├─ code/java/    # Spring examples
  ├─ code/python/  # LangChain / FastAPI snippets
  └─ db_rows/      # Survey-like structured data
 ```
@@ -8271,8 +8262,7 @@ print("\nFetching AWS Open Data Registry metadata...")
 for ds in AWS_DATASETS:
     try:
         url = f"https://registry.opendata.aws/{ds}/"
-        html = requests.get(url, timeout=30).text
-        soup = BeautifulSoup(html, "html.parser")
+        html = requests.get(url, timeout=30).        soup = BeautifulSoup(html, "html.parser")
         text = soup.get_text(" ", strip=True)
         out = f"{BASE}/aws_open/{ds}.txt"
         open(out, "w", encoding="utf-8").write(text)

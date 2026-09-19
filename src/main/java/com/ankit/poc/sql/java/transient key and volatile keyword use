@@ -1,41 +1,41 @@
-Great question! Let's break down both `transient` and `volatile` keywords in Java — they are very different in purpose and use case.
+Great question! Let's break down both transient and volatile keywords in Java — they are very different in purpose and use case.
 
 ---
 
-# 🔹 `transient` Keyword in Java
+🔹 transient Keyword in Java
 
-### 🧠 Purpose:
+ 🧠 Purpose:
 
-The `transient` keyword is used in serialization.
+The transient keyword is used in serialization.
 It tells Java not to serialize a particular field when converting an object to a byte stream.
 
-### 📦 Use Case:
+ 📦 Use Case:
 
 When you want to exclude sensitive, temporary, or derived fields from serialization.
 
-### ✅ Syntax:
+ ✅ Syntax:
 
-```java
+java
 private transient String password;
-```
 
-### 🔍 Example:
 
-```java
+ 🔍 Example:
+
+java
 class User implements Serializable {
     private String username;
     private transient String password;
 }
-```
 
-#### Why?
 
-If this object is serialized, the `password` field will not be saved.
-Upon deserialization, `password` will be null (or default value for the type).
+Why?
 
-### 📌 Notes:
+If this object is serialized, the password field will not be saved.
+Upon deserialization, password will be null (or default value for the type).
 
-Works only with classes that implement `Serializable`.
+ 📌 Notes:
+
+Works only with classes that implement Serializable.
 Used to protect:
 
   Sensitive data (e.g., passwords, tokens)
@@ -44,26 +44,26 @@ Used to protect:
 
 ---
 
-# 🔹 `volatile` Keyword in Java
+🔹 volatile Keyword in Java
 
-### 🧠 Purpose:
+ 🧠 Purpose:
 
-The `volatile` keyword is used in multi-threading.
+The volatile keyword is used in multi-threading.
 It ensures that a variable's value is always read from main memory (not cached per thread).
 
-### 📦 Use Case:
+ 📦 Use Case:
 
 When multiple threads read/write to the same variable, and you want to ensure visibility across threads.
 
-### ✅ Syntax:
+ ✅ Syntax:
 
-```java
+java
 private volatile boolean running = true;
-```
 
-### 🔍 Example:
 
-```java
+ 🔍 Example:
+
+java
 class MyThread extends Thread {
     private volatile boolean running = true;
 
@@ -77,18 +77,18 @@ class MyThread extends Thread {
         running = false;
     }
 }
-```
 
-#### Why?
 
-Without `volatile`, the `running` variable might be cached in the thread, and `stopThread()` in another thread wouldn't be visible.
-With `volatile`, changes are immediately visible to all threads.
+Why?
+
+Without volatile, the running variable might be cached in the thread, and stopThread() in another thread wouldn't be visible.
+With volatile, changes are immediately visible to all threads.
 
 ---
 
-## 🧠 Difference Between `transient` and `volatile`
+🧠 Difference Between transient and volatile
 
-| Feature          | `transient`                          | `volatile`                                     |
+| Feature          | transient                          | volatile                                     |
 | ---------------- | ------------------------------------ | ---------------------------------------------- |
 | Purpose          | Used in serialization            | Used in multi-threading                    |
 | Affects          | Whether a field is saved to disk | Whether a field is visible between threads |
@@ -98,24 +98,24 @@ With `volatile`, changes are immediately visible to all threads.
 
 ---
 
-## ❗ Bonus Tip
+❗ Bonus Tip
 
-### `volatile` is not a replacement for synchronization:
+ volatile is not a replacement for synchronization:
 
 It does not guarantee atomicity.
-For compound operations (e.g., `count++`), use `AtomicInteger` or synchronized blocks.
+For compound operations (e.g., count++), use AtomicInteger or synchronized blocks.
 
 ---
 
-## 🧪 Quick Example Showing Both
+🧪 Quick Example Showing Both
 
-```java
+java
 class Config implements Serializable {
     private transient String secretKey; // won’t be serialized
     private volatile boolean featureToggle; // visible across threads
 }
-```
+
 
 ---
 
-Would you like a practical project example using `volatile` and `transient` — like a thread-safe config manager or serialized user session?
+Would you like a practical project example using volatile and transient — like a thread-safe config manager or serialized user session?

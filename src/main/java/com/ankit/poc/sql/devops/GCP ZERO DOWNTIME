@@ -993,8 +993,7 @@ Redis / Memorystore.
 
  🔥 Pattern 6: Idempotency
 
-```text
-Idempotency-Key: order-123
+```Idempotency-Key: order-123
 ```
 
 Prevents double writes.
@@ -1520,14 +1519,12 @@ Uneven hot tenants
 
  🧱 Cache Key Strategy
 
-```text
-tenant:{tenantId}:user:{userId}
+```tenant:{tenantId}:user:{userId}
 ```
 
 ❌ Bad:
 
-```text
-user:{userId}
+```user:{userId}
 ```
 
 ---
@@ -1536,8 +1533,7 @@ user:{userId}
 
  1️⃣ Cache-Aside (Most Common)
 
-```text
-Read:
+```Read:
 Cache → DB → Cache
 
 Write:
@@ -2490,8 +2486,7 @@ Payments look similar on the surface, but their guarantees and constraints are v
  Strongly consistent
  Source of truth
 
-```text
-txn_id | account | debit | credit | balance | timestamp
+```txn_id | account | debit | credit | balance | timestamp
 ```
 
 Ledger ≠ DB

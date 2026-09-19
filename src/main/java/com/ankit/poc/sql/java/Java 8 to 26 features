@@ -1,0 +1,787 @@
+Java evolved from “object-oriented Java with libraries” in Java 8 to a language with concise data modeling, exhaustive type-safe branching, lightweight concurrency, modern native interop, and frequent six-month releases.
+
+The practical upgrade milestones are **8 → 11 → 17 → 21 → 25** (LTS). Java 26 is the latest feature release, not LTS. Java 26 shipped on 17 March 2026. [OpenJDK release history](https://ops.java/releases/) and [JDK 26 feature list](https://www.oracle.com/ca-en/news/announcement/oracle-releases-java-26-2026-03-17/).
+
+## At a glance
+
+| Java   | Important additions                                                                      |
+|--------|------------------------------------------------------------------------------------------|
+| 8      | Lambdas, Streams, `Optional`, `java.time`, default methods, `CompletableFuture`          |
+| 9      | Modules, JShell, collection factories, reactive `Flow`, process API                      |
+| 10     | `var`, unmodifiable collection copies                                                    |
+| 11 LTS | Standard HTTP client, new String/file APIs, single-file launch                           |
+| 12–13  | Switch expressions, text blocks (preview stages)                                         |
+| 14     | Records, helpful NPEs, final switch expressions                                          |
+| 15–16  | Text blocks final, sealed classes preview → records/pattern matching final               |
+| 17 LTS | Sealed classes final, strong encapsulation                                               |
+| 18     | UTF-8 default, simple web server                                                         |
+| 19–20  | Virtual threads, structured concurrency, record patterns—preview stages                  |
+| 21 LTS | Virtual threads, record patterns, pattern matching for `switch`, sequenced collections   |
+| 22     | Foreign Function & Memory API final, unnamed variables, Stream Gatherers preview         |
+| 23     | Markdown Javadoc, module imports preview, primitive patterns preview                     |
+| 24     | Class-File API and Stream Gatherers final; security/AI-oriented APIs                     |
+| 25 LTS | Module imports, compact source files, flexible constructors; Scoped Values final         |
+| 26     | HTTP/3 client support, AOT object caching, final-field integrity, G1 improvements        |
+
+## Java 8 — the foundational modern Java release
+
+### 1. Lambdas and functional interfaces
+
+Before Java 8, callbacks needed anonymous classes.
+
+```java
+// Java 7 style
+Runnable oldStyle = new Runnable() {
+    @Override
+    public void run() {
+        System.out.println("Running");
+    }
+};
+
+// Java 8+
+Runnable modern = () -> System.out.println("Running");
+```
+
+A lambda works where Java expects a **functional interface**: an interface with one abstract method, such as `Runnable`, `Comparator<T>`, `Function<T, R>`, `Predicate<T>`, or `Consumer<T>`.
+
+```java
+List<String> names = List.of("Asha", "Ravi", "Mina");
+
+names.sort((a, b) -> a.compareToIgnoreCase(b));
+names.forEach(System.out::println);
+```
+
+### 2. Streams
+
+Streams express a pipeline: transform, filter, group, aggregate. They do not store data; they process a source.
+
+```java
+List<String> names = List.of("asha", "ravi", "mina", "alex");
+
+List<String> result = names.stream()
+    .filter(name -> name.length() >= 4)
+    .map(String::toUpperCase)
+    .sorted()
+    .toList(); // Java 16+. Use collect(toList()) on Java 8.
+
+System.out.println(result); // [ALEX, ASHA, MINA, RAVI]
+```
+
+A common business example:
+
+```java
+record Order(String customer, double total) {}
+
+List<Order> orders = List.of(
+    new Order("Asha", 1200),
+    new Order("Ravi", 800),
+    new Order("Asha", 500)
+);
+
+double ashaSpend = orders.stream()
+    .filter(order -> order.customer().equals("Asha"))
+    .mapToDouble(Order::total)
+    .sum();
+
+System.out.println(ashaSpend); // 1700.0
+```
+
+Use streams for readable transformations. Avoid forcing them into complex stateful logic; an ordinary loop is often clearer there.
+
+### 3. `Optional`
+
+`Optional<T>` makes absence explicit at an API boundary.
+
+```java
+Optional<String> findEmail(long userId) {
+    return userId == 1
+        ? Optional.of("asha@example.com")
+        : Optional.empty();
+}
+
+String email = findEmail(2)
+    .orElse("unknown@example.com");
+```
+
+Prefer:
+
+```java
+userRepository.findById(id)
+    .map(User::email)
+    .orElseThrow(() -> new IllegalArgumentException("Unknown user"));
+```
+
+Avoid using `Optional` for fields, constructor parameters, or database entities in most application code. It is primarily a return-type tool.
+
+### 4. `java.time`
+
+Replace legacy mutable date/time APIs (`Date`, `Calendar`) with immutable, timezone-aware types.
+
+```java
+import java.time.*;
+
+Instant now = Instant.now();                         // an absolute point in time
+LocalDate invoiceDate = LocalDate.of(2026, 9, 6);    // no time zone
+ZonedDateTime indiaNow = ZonedDateTime.now(ZoneId.of("Asia/Kolkata"));
+
+LocalDate dueDate = invoiceDate.plusDays(30);
+System.out.println(dueDate); // 2026-10-06
+```
+
+Use:
+
+- `Instant` for database timestamps and event time.
+- `LocalDate` for birthdays, billing dates, and date-only concepts.
+- `ZonedDateTime` when the actual geographic time zone matters.
+- `Duration` / `Period` for elapsed time or calendar periods.
+
+### 5. `CompletableFuture`
+
+This enables asynchronous composition without manually managing callbacks.
+
+```java
+CompletableFuture<String> userFuture =
+    CompletableFuture.supplyAsync(() -> "Asha");
+
+CompletableFuture<String> greetingFuture = userFuture
+    .thenApply(name -> "Hello, " + name)
+    .exceptionally(error -> "Hello, guest");
+
+System.out.println(greetingFuture.join());
+```
+
+## Java 9 — modules and platform modernization
+
+### 1. Java Platform Module System (JPMS)
+
+Modules let an application declare dependencies and control which packages it exposes.
+
+```java
+// src/com.example.app/module-info.java
+module com.example.app {
+    requires java.net.http;
+    exports com.example.app.api;
+}
+```
+
+Benefits:
+
+- More reliable dependency boundaries.
+- Better encapsulation.
+- Custom small runtimes with `jlink`.
+
+Caution: modularizing an old application can be a real migration project due to reflection, split packages, and dependencies that are not modular-aware. You can run most classpath applications on modern Java without creating `module-info.java`.
+
+### 2. Collection factory methods
+
+```java
+List<String> roles = List.of("ADMIN", "USER");
+Set<Integer> ids = Set.of(10, 20, 30);
+Map<String, Integer> scores = Map.of("Asha", 95, "Ravi", 88);
+```
+
+These collections are immutable and reject `null`.
+
+### 3. JShell and improved process handling
+
+```java
+ProcessHandle.current()
+    .info()
+    .command()
+    .ifPresent(System.out::println);
+```
+
+Java 9 also introduced `Flow`, the standard reactive-streams-style interfaces.
+
+## Java 10 — `var`
+
+`var` gives local-variable type inference. It does not create dynamic typing: the compiler still determines one fixed static type.
+
+```java
+var users = new ArrayList<String>();
+var total = 42;
+var request = HttpRequest.newBuilder();
+```
+
+Good:
+
+```java
+var customerById = new HashMap<Long, Customer>();
+```
+
+Less good, because the meaning is unclear:
+
+```java
+var x = compute();
+```
+
+Rules:
+
+- Only local variables.
+- Must have an initializer.
+- Cannot be `null` alone.
+- Cannot be fields, method parameters, or return types.
+
+```java
+var name = null; // does not compile
+```
+
+## Java 11 — a major practical baseline
+
+### 1. Standard HTTP Client
+
+This replaced the old, awkward `HttpURLConnection` for most use cases.
+
+```java
+import java.net.URI;
+import java.net.http.*;
+
+HttpClient client = HttpClient.newHttpClient();
+
+HttpRequest request = HttpRequest.newBuilder()
+    .uri(URI.create("https://api.example.com/users/1"))
+    .header("Accept", "application/json")
+    .GET()
+    .build();
+
+HttpResponse<String> response = client.send(
+    request,
+    HttpResponse.BodyHandlers.ofString()
+);
+
+System.out.println(response.statusCode());
+System.out.println(response.body());
+```
+
+Async version:
+
+```java
+client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+    .thenApply(HttpResponse::body)
+    .thenAccept(System.out::println)
+    .join();
+```
+
+### 2. Better String and file APIs
+
+```java
+String raw = "  hello\nworld  ";
+
+System.out.println(raw.isBlank());     // false
+System.out.println(raw.strip());       // removes Unicode whitespace
+System.out.println("ha".repeat(3));    // hahaha
+
+raw.lines().forEach(System.out::println);
+
+String content = Files.readString(Path.of("config.json"));
+Files.writeString(Path.of("output.txt"), "saved");
+```
+
+### 3. Launch a single source file directly
+
+```bash
+java Hello.java
+```
+
+This is useful for scripts, demos, coding exercises, and small operational utilities.
+
+## Java 12–15 — cleaner control flow and multiline 
+### Switch expressions (final in Java 14)
+
+Old `switch` statements were error-prone because `break` was optional.
+
+```java
+String label;
+
+switch (status) {
+    case 200:
+        label = "OK";
+        break;
+    case 404:
+        label = "Not Found";
+        break;
+    default:
+        label = "Other";
+}
+```
+
+Modern switch expressions return a value and avoid accidental fall-through.
+
+```java
+int status = 404;
+
+String label = switch (status) {
+    case 200 -> "OK";
+    case 404 -> "Not Found";
+    case 401, 403 -> "Unauthorized";
+    default -> "Other";
+};
+```
+
+For multiple statements, use `yield`.
+
+```java
+String grade = switch (score) {
+    case 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100 -> "A";
+    default -> {
+        logScore(score);
+        yield "Other";
+    }
+};
+```
+
+### Text blocks (final in Java 15)
+
+Text blocks make JSON, SQL, HTML, and multiline messages readable.
+
+```java
+String json = """
+    {
+      "name": "Asha",
+      "role": "ADMIN"
+    }
+    """;
+
+String sql = """
+    SELECT id, name
+    FROM users
+    WHERE active = true
+    ORDER BY name
+    """;
+```
+
+## Java 14–17 — model data and type hierarchies clearly
+
+### Records (final in Java 16)
+
+Records are concise immutable data carriers. The compiler generates the constructor, accessors, `equals`, `hashCode`, and `toString`.
+
+```java
+public record User(long id, String name, String email) {}
+```
+
+Usage:
+
+```java
+User user = new User(1, "Asha", "asha@example.com");
+
+System.out.println(user.name());
+System.out.println(user);
+```
+
+Records can validate input in their compact constructor.
+
+```java
+public record Money(String currency, long cents) {
+    public Money {
+        if (cents < 0) {
+            throw new IllegalArgumentException("Amount cannot be negative");
+        }
+    }
+}
+```
+
+Use records for DTOs, API payloads, value objects, commands, events, and immutable configuration. Do not use them automatically for JPA entities or objects whose identity/mutable lifecycle matters.
+
+### Pattern matching for `instanceof` (final in Java 16)
+
+```java
+Object value = "Java";
+
+if (value instanceof String text) {
+    System.out.println(text.toUpperCase());
+}
+```
+
+This replaces repetitive casting:
+
+```java
+if (value instanceof String) {
+    String text = (String) value;
+}
+```
+
+### Sealed classes (final in Java 17)
+
+Sealed classes limit which types may extend a hierarchy.
+
+```java
+public sealed interface PaymentResult
+    permits PaymentSuccess, PaymentFailure {}
+
+public record PaymentSuccess(String transactionId)
+    implements PaymentResult {}
+
+public record PaymentFailure(String reason)
+    implements PaymentResult {}
+```
+
+This is excellent for finite business domains: payment outcomes, AST nodes, UI states, workflow commands, or API result types.
+
+```java
+String message = switch (result) {
+    case PaymentSuccess success -> "Paid: " + success.transactionId();
+    case PaymentFailure failure -> "Failed: " + failure.reason();
+};
+```
+
+The compiler can prove the switch is exhaustive because it knows every permitted subtype.
+
+### Helpful NullPointerExceptions
+
+Modern Java can identify the null part of a chained access more precisely.
+
+```java
+String city = order.customer().address().city();
+```
+
+Instead of only “NullPointerException,” Java can report which expression was null. This is diagnostic help, not a substitute for validation and sound null-handling design.
+
+## Java 18–20 — previews that led to modern concurrency
+
+### Java 18
+
+Important smaller developer-facing improvements:
+
+- UTF-8 became the default charset.
+- A simple development HTTP file server appeared:
+
+```bash
+jwebserver -p 8080
+```
+
+### Virtual threads: preview in 19/20, final in Java 21
+
+Traditional platform threads map closely to OS threads, so blocking I/O at very high concurrency can be expensive. Virtual threads are lightweight JVM-managed threads designed for massive numbers of mostly-blocking tasks.
+
+```java
+try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    List<Callable<String>> tasks = List.of(
+        () -> fetchCustomer(1),
+        () -> fetchCustomer(2),
+        () -> fetchCustomer(3)
+    );
+
+    List<Future<String>> results = executor.invokeAll(tasks);
+
+    for (Future<String> result : results) {
+        System.out.println(result.get());
+    }
+}
+```
+
+For request-per-task server workloads, code can stay simple and blocking:
+
+```java
+Thread.startVirtualThread(() -> {
+    String response = callRemoteService();
+    saveResponse(response);
+});
+```
+
+Virtual threads are not a magic “make everything parallel” switch.
+
+Use them when work spends significant time waiting on I/O:
+
+- HTTP calls
+- database calls
+- queues
+- file/network I/O
+
+They do not speed up CPU-bound workloads. For CPU-heavy work, bound concurrency around available processors.
+
+## Java 21 LTS — the biggest upgrade since Java 8
+
+### 1. Virtual threads
+
+Finalized in Java 21. This is the strongest reason many server applications moved to Java 21. The official JEP describes them as lightweight threads intended to simplify high-throughput concurrent applications. [JEP 444](https://openjdk.org/jeps/444)
+
+```java
+try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+    for (int userId = 1; userId <= 100_000; userId++) {
+        int id = userId;
+        executor.submit(() -> sendNotification(id));
+    }
+}
+```
+
+Do not pool virtual threads. A virtual-thread-per-task executor is normally the intended model.
+
+### 2. Pattern matching for `switch`
+
+This works especially well with records and sealed types.
+
+```java
+sealed interface Shape permits Circle, Rectangle {}
+record Circle(double radius) implements Shape {}
+record Rectangle(double width, double height) implements Shape {}
+
+double area(Shape shape) {
+    return switch (shape) {
+        case Circle(double radius) ->
+            Math.PI * radius * radius;
+        case Rectangle(double width, double height) ->
+            width * height;
+    };
+}
+```
+
+This replaces a long sequence of `instanceof` checks and casts, while retaining compile-time exhaustiveness.
+
+### 3. Record patterns
+
+Destructure nested records directly.
+
+```java
+record Address(String city, String country) {}
+record Person(String name, Address address) {}
+
+void printCountry(Person person) {
+    if (person instanceof Person(String name,
+                                 Address(String city, String country))) {
+        System.out.println(name + " lives in " + country);
+    }
+}
+```
+
+### 4. Sequenced collections
+
+Java 21 standardized APIs for collections with an encounter order.
+
+```java
+List<String> queue = new ArrayList<>(List.of("first", "second", "third"));
+
+System.out.println(queue.getFirst());  // first
+System.out.println(queue.getLast());   // third
+System.out.println(queue.reversed());  // [third, second, first]
+```
+
+This removes common awkwardness around `list.get(0)` and `list.get(list.size() - 1)`.
+
+## Java 22–24 — native interop, pipelines, tooling, security
+
+### Foreign Function & Memory API (final in Java 22)
+
+This is a safer, supported replacement path for much JNI usage. It lets Java call native libraries and manage off-heap memory using standard APIs.
+
+Conceptually:
+
+```java
+// Illustrative outline; exact native-library setup is environment-specific.
+try (Arena arena = Arena.ofConfined()) {
+    MemorySegment buffer = arena.allocate(1024);
+    buffer.set(ValueLayout.JAVA_INT, 0, 42);
+
+    int value = buffer.get(ValueLayout.JAVA_INT, 0);
+    System.out.println(value);
+}
+```
+
+Use it for performance-sensitive native integration, OS APIs, C libraries, hardware SDKs, or ML/graphics libraries. It is more advanced than ordinary application programming; do not reach for it merely to read files or make HTTP calls.
+
+### Unnamed variables and patterns (Java 22)
+
+Use `_` for values intentionally ignored.
+
+```java
+try {
+    process();
+} catch (Exception _) {
+    // Exception object intentionally unused
+}
+```
+
+```java
+record Point(int x, int y) {}
+
+if (point instanceof Point(int x, _)) {
+    System.out.println("x = " + x);
+}
+```
+
+### Stream Gatherers (final in Java 24)
+
+Gatherers allow custom intermediate stream operations. A practical built-in example is windowing.
+
+```java
+import java.util.stream.Gatherers;
+
+List<List<Integer>> windows = List.of(1, 2, 3, 4, 5).stream()
+    .gather(Gatherers.windowFixed(2))
+    .toList();
+
+System.out.println(windows); // [[1, 2], [3, 4], [5]]
+```
+
+### Class-File API (final in Java 24)
+
+This supplies a standard Java API to parse, generate, and transform `.class` files, useful for framework authors, bytecode tooling, agents, and code generators. It is not something typical application code needs.
+
+### Markdown in Javadoc (Java 23)
+
+```java
+/// Returns the active user.
+///
+/// ## Errors
+///
+/// Throws `IllegalArgumentException` when `id` is invalid.
+User findActiveUser(long id) {
+    // ...
+}
+```
+
+## Java 25 LTS — current long-term-support target
+
+Java 25 is the newest LTS release. Its major production-ready additions include:
+
+- **Scoped Values** — an efficient, safer way to pass immutable contextual data down a call chain.
+- **Module import declarations** — import all public packages exported by a module.
+- **Compact source files and instance `main` methods** — simpler beginner/scripting source files.
+- **Flexible constructor bodies** — statements can appear before an explicit `super(...)` call in controlled cases.
+- **KDF API** — standard cryptographic key-derivation functions.
+- **Generational Shenandoah** and performance/observability improvements.
+
+Java 25 has eighteen JEPs, including finalization of Scoped Values and module imports. [OpenJDK’s JDK 25 GA announcement](https://mail.openjdk.org/archives/list/jdk-dev@openjdk.org/latest?count=100&page=2)
+
+### Scoped Values
+
+Instead of threading a value through every method parameter, bind it for one dynamic scope.
+
+```java
+static final ScopedValue<String> REQUEST_ID = ScopedValue.newInstance();
+
+void handleRequest(String requestId) {
+    ScopedValue.where(REQUEST_ID, requestId)
+        .run(() -> {
+            log("Request started");
+            callService();
+        });
+}
+
+void log(String message) {
+    System.out.println("[" + REQUEST_ID.get() + "] " + message);
+}
+```
+
+Use this for request IDs, trace context, security context, or tenant context—especially with virtual threads. Do not use it as a hidden replacement for ordinary business-data parameters.
+
+### Module imports
+
+```java
+import module java.base;
+```
+
+This imports accessible public types exported by the module. It is useful for compact programs, but explicit imports often remain clearer in large applications because they show dependencies directly.
+
+## Java 26 — latest feature release
+
+Java 26 contains ten JEPs. The significant production-facing ones are:
+
+### HTTP/3 for `HttpClient`
+
+Java’s standard HTTP client can use HTTP/3, which runs over QUIC. Benefits can include reduced head-of-line blocking and faster connection establishment in appropriate network conditions.
+
+```java
+HttpClient client = HttpClient.newBuilder()
+    .version(HttpClient.Version.HTTP_3)
+    .build();
+
+HttpRequest request = HttpRequest.newBuilder(
+        URI.create("https://example.com/api/status"))
+    .GET()
+    .build();
+
+HttpResponse<String> response = client.send(
+    request,
+    HttpResponse.BodyHandlers.ofString()
+);
+```
+
+The server/network must support HTTP/3; client preference does not guarantee HTTP/3 will be used.
+
+### Prepare to Make `final` Mean Final
+
+Java 26 strengthens the direction toward preventing deep reflection from silently mutating `final` fields. This improves assumptions made by developers, frameworks, and JVM optimizations.
+
+```java
+public final class Config {
+    private final String endpoint;
+
+    public Config(String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    public String endpoint() {
+        return endpoint;
+    }
+}
+```
+
+Frameworks relying on reflective mutation should migrate toward constructors, factories, supported serialization hooks, or explicitly authorized mechanisms.
+
+### Ahead-of-Time object caching
+
+JDK 26 adds AOT object caching capabilities to improve startup behavior by reusing pre-initialized object graphs. This matters more for startup-sensitive workloads—CLI programs, serverless functions, and large frameworks—than for ordinary code structure.
+
+### G1 GC synchronization improvements
+
+G1 reduces unnecessary synchronization to improve throughput. This is a runtime improvement: most applications benefit without source changes.
+
+### Preview/incubator features in Java 26
+
+Java 26 also continues several experimental APIs/features:
+
+- Structured Concurrency, sixth preview
+- Primitive types in patterns / `instanceof` / `switch`, fourth preview
+- PEM cryptographic encodings, second preview
+- Lazy constants, second preview
+- Vector API, eleventh incubator
+
+Use preview features only deliberately:
+
+```bash
+javac --enable-preview --release 26 Example.java
+java --enable-preview Example
+```
+
+Preview code must run on the same feature-release JDK and can change or disappear. The Java language specification explicitly treats preview features as release-specific. [Java SE 26 language updates](https://docs.oracle.com/en/java/javase/26/language/java-se-language-updates.pdf)
+
+## What to use in real projects
+
+If starting a production service today:
+
+- Choose **Java 25 LTS** when long support life matters most.
+- Choose **Java 21 LTS** when dependency compatibility or organizational adoption makes it the safer immediate jump.
+- Use **Java 26** for experimenting with its final features or when your deployment model supports frequent upgrades.
+- Use Java 8 only when constrained by legacy dependencies; it is far behind in language ergonomics, observability, concurrency, and platform support.
+
+The modern Java core toolkit is:
+
+```java
+// Data
+record User(long id, String name) {}
+
+// Finite domain
+sealed interface Result permits Success, Failure {}
+record Success(User user) implements Result {}
+record Failure(String message) implements Result {}
+
+// Exhaustive branching
+String display(Result result) {
+    return switch (result) {
+        case Success(User user) -> "Welcome " + user.name();
+        case Failure(String message) -> "Error: " + message;
+    };
+}
+
+// High-concurrency blocking work
+void notifyUsers(List<User> users) throws Exception {
+    try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        for (User user : users) {
+            executor.submit(() -> sendEmail(user));
+        }
+    }
+}
+```
+
+That combination—**records, sealed hierarchies, pattern-matching switch, standard HTTP client, `java.time`, streams where appropriate, and virtual threads**—is the most important conceptual shift from Java 8 to modern Java.

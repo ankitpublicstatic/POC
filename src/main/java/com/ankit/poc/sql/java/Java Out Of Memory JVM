@@ -56,8 +56,7 @@ Both are important to understand and to diagnose.
 
 * JVM options:
 
-  ```text
-  -Xms256m -Xmx384m
+  ```  -Xms256m -Xmx384m
   -XX:+UseG1GC
   -XX:+HeapDumpOnOutOfMemoryError
   -XX:HeapDumpPath=/tmp/heapdump.hprof
@@ -70,16 +69,14 @@ Both are important to understand and to diagnose.
 
 * Java 8 (8u191+) and newer understand container limits by default in recent builds. If needed:
 
-  ```text
-  -XX:+UseContainerSupport
+  ```  -XX:+UseContainerSupport
   -XX:MaxRAMPercentage=75.0
   -XX:InitialRAMPercentage=25.0
   ```
 
   Or explicit:
 
-  ```text
-  -Xmx384m
+  ```  -Xmx384m
   ```
 
   `MaxRAMPercentage` is handy when you want the JVM to size itself relative to container memory.
@@ -88,8 +85,7 @@ Both are important to understand and to diagnose.
 
 * **G1GC** is a sensible default for modern apps:
 
-  ```text
-  -XX:+UseG1GC
+  ```  -XX:+UseG1GC
   -XX:MaxGCPauseMillis=200
   ```
 * On JDKs that support newer GCs (ZGC, Shenandoah), evaluate them for very large heaps and low pause requirements.
@@ -102,8 +98,7 @@ Both are important to understand and to diagnose.
 
 * Many threads + default stack size = large native memory. Reduce thread count or set smaller thread stack:
 
-  ```text
-  -Xss512k
+  ```  -Xss512k
   ```
 
   Or increase container memory and thread ulimit.
@@ -116,13 +111,11 @@ Both are important to understand and to diagnose.
 
 * Enable heap dump on OOM:
 
-  ```text
-  -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heapdump.hprof
+  ```  -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp/heapdump.hprof
   ```
 * GC logs (Java 8 and Java 9+ options differ):
 
-  ```text
-  # Java 8
+  ```  # Java 8
   -verbose:gc -XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:/tmp/gc.log
 
   # Java 9+
@@ -130,8 +123,7 @@ Both are important to understand and to diagnose.
   ```
 * Enable native memory tracking (for native leaks):
 
-  ```text
-  -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions
+  ```  -XX:NativeMemoryTracking=summary -XX:+UnlockDiagnosticVMOptions
   jcmd <pid> VM.native_memory summary
   ```
 

@@ -58,8 +58,7 @@ Let’s take an example.
 
 #### 1️⃣ Cold Start (first invocation)
 
-```text
-1. AWS loads your JAR from S3.
+```1. AWS loads your JAR from S3.
 2. A new micro-VM is created (Firecracker sandbox).
 3. Java runtime (e.g., Corretto 17) is booted.
 4. Your class static blocks & constructors run.
@@ -74,8 +73,7 @@ Let’s take an example.
 
 #### 2️⃣ Warm Start (subsequent invocations)
 
-```text
-1. The container already exists in memory.
+```1. The container already exists in memory.
 2. AWS reuses the same environment.
 3. No reloading, no re-initialization.
 4. Handler executes immediately.

@@ -1,10 +1,10 @@
-Excellent question. This is **core to understanding Spring WebFlux, Netty, Node.js, high-scale systems**, and it often decides saw **senior vs staff-level interviews**.
+Excellent question. This is core to understanding Spring WebFlux, Netty, Node.js, high-scale systems, and it often decides saw senior vs staff-level interviews.
 
-I’ll go **deep and precise**, step-by-step.
+I’ll go deep and precise, step-by-step.
 
 ---
 
-# PART 1️⃣ — Why Netty does **NOT** allocate one thread per request
+# PART 1️⃣ — Why Netty does NOT allocate one thread per request
 
 ## Traditional Model (Spring MVC + Tomcat)
 
@@ -18,20 +18,20 @@ Client ──HTTP──▶ Thread-3 ── IO ──▶ Response
 
 ### What goes wrong at scale
 
-* Each request **blocks a thread**
-* Threads consume:
+Each request blocks a thread
+Threads consume:
 
-  * ~1MB stack memory
-  * CPU context switching
-* If DB/API is slow → thread is **idle but occupied**
+  ~1MB stack memory
+  CPU context switching
+If DB/API is slow → thread is idle but occupied
 
-🧠 **10k concurrent users = 10k threads → JVM dies**
+🧠 10k concurrent users = 10k threads → JVM dies
 
 ---
 
 ## Netty / Reactive Model
 
-> **Instead of blocking threads, Netty blocks nothing and waits for events**
+> Instead of blocking threads, Netty blocks nothing and waits for events
 
 ```
 Client ──▶ Event Loop ──▶ Non-blocking IO ──▶ Callback
@@ -47,7 +47,7 @@ Client ──▶ Event Loop ──▶ Non-blocking IO ──▶ Callback
 
 ### Simple definition
 
-> An **event loop** is a **single-threaded loop** that continuously:
+> An event loop is a single-threaded loop that continuously:
 
 1. Waits for events
 2. Executes callbacks
@@ -68,17 +68,17 @@ while (true) {
 
 ## Types of Events
 
-* Socket connection accepted
-* Data available to read
-* Write completed
-* Timer expired
-* Channel closed
+Socket connection accepted
+Data available to read
+Write completed
+Timer expired
+Channel closed
 
 ---
 
 # PART 3️⃣ — Netty Architecture (Deep Dive)
 
-### Netty uses **NIO (Non-Blocking IO)**
+### Netty uses NIO (Non-Blocking IO)
 
 Key concepts:
 
@@ -95,11 +95,11 @@ Key concepts:
 
 ### 1️⃣ Boss Group
 
-* Accepts incoming TCP connections
+Accepts incoming TCP connections
 
 ### 2️⃣ Worker Group
 
-* Handles read/write IO events
+Handles read/write IO events
 
 ```
           Client
@@ -119,7 +119,7 @@ Key concepts:
 
 ## Key Rule
 
-> **One Channel (connection) is always handled by the same EventLoop thread**
+> One Channel (connection) is always handled by the same EventLoop thread
 
 This avoids locking 🔐
 
@@ -166,7 +166,7 @@ Client → Netty → EventLoop → Router → Mono/Flux → EventLoop → Respon
 
 ### Important Rule
 
-> **Never block the event loop**
+> Never block the event loop
 
 ❌ BAD
 
@@ -227,19 +227,19 @@ t7: write response
 
 # PART 8️⃣ — Message vs Event (Distributed Systems)
 
-This is **VERY IMPORTANT** conceptually.
+This is VERY IMPORTANT conceptually.
 
 ---
 
 ## What is a Message?
 
-> A **message** is a **command or data** sent from one service to another expecting **processing**.
+> A message is a command or data sent from one service to another expecting processing.
 
 ### Characteristics
 
-* Has a **destination**
-* Often **expects action**
-* May require **ack / response**
+Has a destination
+Often expects action
+May require ack / response
 
 ### Examples
 
@@ -257,22 +257,22 @@ This is **VERY IMPORTANT** conceptually.
 
 ### Message examples
 
-* PlaceOrder
-* ChargePayment
-* SendEmail
-* UpdateInventory
+PlaceOrder
+ChargePayment
+SendEmail
+UpdateInventory
 
 ---
 
 ## What is an Event?
 
-> An **event** represents a **fact that already happened**
+> An event represents a fact that already happened
 
 ### Characteristics
 
-* Immutable
-* No expectation of response
-* Broadcast in nature
+Immutable
+No expectation of response
+Broadcast in nature
 
 ### Examples
 
@@ -323,18 +323,18 @@ OrderService → Kafka
 
 ## Why this matters in Event Loop systems
 
-* Event loops process **events**
-* Kafka delivers **events**
-* Reactive pipelines respond to **events**
-* Non-blocking systems thrive on **event-driven architecture**
+Event loops process events
+Kafka delivers events
+Reactive pipelines respond to events
+Non-blocking systems thrive on event-driven architecture
 
 ---
 
 # PART 9️⃣ — One-liners for Interviews
 
-✔ **Netty avoids thread-per-request to eliminate blocking and context switching.**
-✔ **Event loops multiplex many connections on few threads using non-blocking IO.**
-✔ **Messages tell services what to do; events tell the system what already happened.**
+✔ Netty avoids thread-per-request to eliminate blocking and context switching.
+✔ Event loops multiplex many connections on few threads using non-blocking IO.
+✔ Messages tell services what to do; events tell the system what already happened.
 
 ---
 

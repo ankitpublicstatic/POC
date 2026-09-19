@@ -1,3 +1,4 @@
+package com.ankit.poc.abc1;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,21 +26,25 @@ public class Test {
             Collectors.mapping(Employee::getName, Collectors.toList())));
 
     System.out.println(employeeNameMapByDepartmentName);
+
     // 2) Based on employee salary, order the employees in descending order
     List<String> employeeNames =
         employeesList.stream().sorted(Comparator.comparingDouble(Employee::getSalary).reversed())
             .map(Employee::getName).toList();
 
     System.out.println(employeeNames);
+
     List<Integer> uniqueStudentIdsSet =
         studentList.stream().filter(student -> student.getId() != null)
             .collect(Collectors.toMap(Student::getId, student -> student,
                 (exitsing, replacement) -> exitsing))
             .values().stream().map(stud -> stud.getId()).collect(Collectors.toList());
+
     List<Integer> list = studentList.stream().filter(student -> student.getId() != null)
         .map(Student::getId).distinct().toList();
     System.out.println(uniqueStudentIdsSet);
-    System.out.println(list); // <Student, Integer, Student>
+    System.out.println(list);
+    // <Student, Integer, Student>
     // Collector<Student, ?, Map<Integer, Student>> java.util.stream.Collectors.toMap(
     // Function<? super Student, ? extends Integer> keyMapper,
     // Function<? super Student, ? extends Student> valueMapper,

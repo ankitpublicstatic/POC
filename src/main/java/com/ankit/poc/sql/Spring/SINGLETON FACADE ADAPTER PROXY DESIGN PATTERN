@@ -1,0 +1,242 @@
+SINGLETONThese four patterns solve different problems: Adapter makes incompatible interfaces work together, Façade simplifies access to a complex subsystem, Proxy controls access to an object, and Singleton ensures a class has only one instance. In Java, they are most useful when you want cleaner architecture, easier maintenance, and clearer responsibilities. [softengbook](https://softengbook.org/chapter6)
+
+## 1) Adapter
+
+Adapter is used when you already have a class, but its interface does not match what your code expects. It wraps the existing class and exposes the interface your application needs. Think of it like a charger adapter that lets a plug fit a different socket. [geeksforgeeks](https://www.geeksforgeeks.org/system-design/software-design-patterns/)
+
+### Java example
+```java
+// Target interface expected by the client
+interface PaymentProcessor {
+    void pay(double amount);
+}
+
+// Existing class with incompatible interface
+class LegacyPayPalGateway {
+    void makePayment(double amountInUSD) {
+        System.out.println("Paid $" + amountInUSD + " through Legacy PayPal gateway");
+    }
+}
+
+// Adapter
+class PayPalAdapter implements PaymentProcessor {
+    private final LegacyPayPalGateway gateway;
+
+    public PayPalAdapter(LegacyPayPalGateway gateway) {
+        this.gateway = gateway;
+    }
+
+    @Override
+    public void pay(double amount) {
+        gateway.makePayment(amount);
+    }
+}
+
+// Client code
+public class AdapterDemo {
+    public static void main(String[] args) {
+        PaymentProcessor processor = new PayPalAdapter(new LegacyPayPalGateway());
+        processor.pay(250.0);
+    }
+}
+```
+
+### When to use
+- Integrating old code with new code.
+- Reusing third-party libraries with different interfaces.
+- Avoiding changes to a stable legacy class.
+
+### Key idea
+Adapter changes the **interface**, not the behavior.
+
+## 2) Façade
+
+Façade provides a simple, unified interface to a complex set of classes. Instead of letting the client talk to many subsystem objects directly, the façade offers one easy entry point. This reduces coupling and makes code easier to use. [refactoring](https://refactoring.guru/design-patterns/java)
+
+### Java example
+```java
+class CPU {
+    void freeze() { System.out.println("CPU freezing"); }
+    void jump(long position) { System.out.println("CPU jumping to " + position); }
+    void execute() { System.out.println("CPU executing"); }
+}
+
+class Memory {
+    void load(long position, byte[] data) { System.out.println("Memory loading data"); }
+}
+
+class HardDrive {
+    byte[] read(long lba, int size) { 
+        System.out.println("HardDrive reading data"); 
+        return new byte[size]; 
+    }
+}
+
+// Façade
+class ComputerFacade {
+    private final CPU cpu;
+    private final Memory memory;
+    private final HardDrive hardDrive;
+
+    public ComputerFacade(CPU cpu, Memory memory, HardDrive hardDrive) {
+        this.cpu = cpu;
+        this.memory = memory;
+        this.hardDrive = hardDrive;
+    }
+
+    public void start() {
+        cpu.freeze();
+        memory.load(0, hardDrive.read(0, 1024));
+        cpu.jump(0);
+        cpu.execute();
+    }
+}
+
+public class FacadeDemo {
+    public static void main(String[] args) {
+        ComputerFacade computer = new ComputerFacade(new CPU(), new Memory(), new HardDrive());
+        computer.start();
+    }
+}
+```
+
+### When to use
+- When a subsystem has many steps or classes.
+- When you want to hide internal complexity.
+- When you want a clean API for other teams or modules.
+
+### Key idea
+Façade simplifies **usage**, not compatibility.
+
+## 3) Proxy
+
+Proxy is a stand-in for another object. It controls access to the real object and can add extra behavior like lazy loading, logging, security, or caching before delegating the call. In short, it acts as a representative. [softengbook](https://softengbook.org/chapter6)
+
+### Java example
+```java
+interface Image {
+    void display();
+}
+
+class RealImage implements Image {
+    private final String fileName;
+
+    public RealImage(String fileName) {
+        this.fileName = fileName;
+        loadFromDisk();
+    }
+
+    private void loadFromDisk() {
+        System.out.println("Loading " + fileName + " from disk");
+    }
+
+    @Override
+    public void display() {
+        System.out.println("Displaying " + fileName);
+    }
+}
+
+class ImageProxy implements Image {
+    private final String fileName;
+    private RealImage realImage;
+
+    public ImageProxy(String fileName) {
+        this.fileName = fileName;
+    }
+
+    @Override
+    public void display() {
+        if (realImage == null) {
+            realImage = new RealImage(fileName);
+        }
+        realImage.display();
+    }
+}
+
+public class ProxyDemo {
+    public static void main(String[] args) {
+        Image image = new ImageProxy("photo.jpg");
+        image.display();
+        image.display();
+    }
+}
+```
+
+### When to use
+- Lazy initialization of expensive objects.
+- Access control or authentication.
+- Logging, monitoring, or caching around calls.
+
+### Key idea
+Proxy controls **access** to the real object.
+
+## 4) Singleton
+
+Singleton ensures a class has only one instance and provides a global point of access to it. It is commonly used for configuration, logging, and shared resources. A modern Java Singleton should be thread-safe and avoid unnecessary complexity. [geeksforgeeks](https://www.geeksforgeeks.org/system-design/singleton-design-pattern/)
+
+### Java example
+```java
+public final class AppConfig {
+    private static volatile AppConfig instance;
+
+    private AppConfig() {
+        System.out.println("Loading configuration once");
+    }
+
+    public static AppConfig getInstance() {
+        if (instance == null) {
+            synchronized (AppConfig.class) {
+                if (instance == null) {
+                    instance = new AppConfig();
+                }
+            }
+        }
+        return instance;
+    }
+
+    public String getAppName() {
+        return "MyApplication";
+    }
+}
+
+public class SingletonDemo {
+    public static void main(String[] args) {
+        AppConfig c1 = AppConfig.getInstance();
+        AppConfig c2 = AppConfig.getInstance();
+
+        System.out.println(c1.getAppName());
+        System.out.println(c1 == c2);
+    }
+}
+```
+
+### Better Java Singleton options
+- Use an `enum` if you want the simplest and most robust Singleton.
+- Use double-checked locking only when you need lazy initialization.
+- Avoid Singleton when dependency injection is a better fit.
+
+### Enum singleton example
+```java
+public enum Logger {
+    INSTANCE;
+
+    public void log(String msg) {
+        System.out.println("LOG: " + msg);
+    }
+}
+```
+
+## Differences
+
+| Pattern | Main purpose | How it helps | Typical use |
+|---|---|---|---|
+| Adapter | Make incompatible interfaces work together | Converts one interface into another | Legacy integration, third-party APIs |
+| Façade | Simplify a complex subsystem | Provides one easy API | Libraries, startup flows, system orchestration |
+| Proxy | Control access to an object | Adds a placeholder layer | Lazy loading, security, caching |
+| Singleton | Ensure one instance | Global access to one object | Config, logging, shared state |
+
+## Practical guidance
+
+Use Adapter when the problem is **interface mismatch**. Use Façade when the problem is **too much complexity**. Use Proxy when the problem is **access control or deferred creation**. Use Singleton only when the application truly needs one shared instance, because it can make testing and dependency management harder if overused. [geeksforgeeks](https://www.geeksforgeeks.org/system-design/software-design-patterns/)
+
+A useful way to remember them is: Adapter translates, Façade simplifies, Proxy protects, and Singleton restricts creation.

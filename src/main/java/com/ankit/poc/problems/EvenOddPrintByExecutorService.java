@@ -7,10 +7,15 @@ import java.util.stream.IntStream;
 
 public class EvenOddPrintByExecutorService {
   public static void main(String[] args) {
+
     ExecutorService executorService = Executors.newFixedThreadPool(2);
+
     IntStream.rangeClosed(1, 10).forEach(num -> {
+
       CompletableFuture<Integer> oddCompletableFuture =
+
           CompletableFuture.completedFuture(num).thenApplyAsync(x -> {
+
             if (x % 2 != 0) {
               System.out
                   .println("Thread name : " + Thread.currentThread().getName() + " Value :" + x);

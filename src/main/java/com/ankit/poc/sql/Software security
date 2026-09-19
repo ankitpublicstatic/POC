@@ -213,8 +213,7 @@ Sensitive data (like passwords, credit card numbers) is not encrypted properly.
 
 Examples:
 - Using HTTP instead of HTTPS
-- Storing passwords in plain text
-- Weak encryption algorithms (like MD5 or SHA1)
+- Storing passwords in plain - Weak encryption algorithms (like MD5 or SHA1)
 
 How to prevent:
 - Use TLS 1.2+ for transmission
@@ -323,8 +322,7 @@ Inadequate logging, monitoring, or alerting of security events.
 Examples:
 - No alerts for repeated failed logins
 - Logs not monitored for anomalies
-- Logs stored in plain text
-
+- Logs stored in plain 
 How to prevent:
 - Implement centralized logging (e.g., ELK Stack, Splunk)
 - Log security-relevant events (auth, data changes)

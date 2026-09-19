@@ -1,0 +1,525 @@
+“Real-time SonarQube” has two parts:
+
+1. While coding: install SonarQube for IDE in IntelliJ for Spring Boot and VS Code/WebStorm for React, then bind both folders to their SonarQube projects. It flags supported issues as you type and synchronizes server rules, exclusions, and issue status. [Official connected-mode guide](https://docs.sonarsource.com/sonarqube-server/2025.4/user-guide/connected-mode)
+2. Authoritative CI checks: run unit tests + coverage + scanner on every push/PR. SonarQube computes the Quality Gate after analysis. [How analysis works](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/analysis-overview)
+
+A practical repository layout:
+
+text
+my-product/
+├── backend/       # Spring Boot / Maven
+├── frontend/      # React / Vite
+└── .github/workflows/sonarqube.yml
+
+## 1. Run SonarQube locally
+
+`docker-compose.yml`:
+
+yaml
+services:
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+
+Start it:
+
+bash
+docker compose up -d
+
+Open `http://localhost:9000`, sign in initially with `admin` / `admin`, change that password, then create:
+
+- Project: `acme-shop-api`, key: `acme-shop-api`
+- Project: `acme-shop-web`, key: `acme-shop-web`
+- A scoped analysis token for CI/local analysis
+
+For production, use a supported SonarQube Server edition with PostgreSQL and persistent storage—not this lightweight local setup.
+
+## 2. Spring Boot + JaCoCo + SonarQube
+
+`backend/pom.xml` essentials:
+
+xml
+<project>
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.4.5</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.acme</groupId>
+  <artifactId>shop-api</artifactId>
+  <version>1.0.0</version>
+
+  <properties>
+    <java.version>21</java.version>
+    <jacoco.version>0.8.12</jacoco.version>
+
+    <!-- Sonar project identity -->
+    <sonar.projectKey>acme-shop-api</sonar.projectKey>
+    <sonar.projectName>Acme Shop API</sonar.projectName>
+    <sonar.coverage.jacoco.xmlReportPaths>
+      ${project.build.directory}/site/jacoco/jacoco.xml
+    </sonar.coverage.jacoco.xmlReportPaths>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+
+          <execution>
+            <id>jacoco-report</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonarsource.scanner.maven</groupId>
+        <artifactId>sonar-maven-plugin</artifactId>
+        <version>5.1.0.4751</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
+
+Example production-style code:
+
+java
+// src/main/java/com/acme/shop/product/ProductService.java
+package com.acme.shop.product;
+
+import java.math.BigDecimal;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ProductService {
+    private final ProductRepository repository;
+
+    public ProductService(ProductRepository repository) {
+        this.repository = repository;
+    }
+
+    public List<Product> findAvailableProducts() {
+        return repository.findByActiveTrue();
+    }
+
+    public Product create(CreateProductRequest request) {
+        if (repository.existsBySku(request.sku())) {
+            throw new DuplicateSkuException(request.sku());
+        }
+
+        Product product = new Product(
+            request.sku(),
+            request.name().trim(),
+            request.price(),
+            true
+        );
+
+        return repository.save(product);
+    }
+}
+
+record CreateProductRequest(
+    String sku,
+    String name,
+    BigDecimal price
+) {}
+
+Test it so JaCoCo has meaningful coverage:
+
+java
+// src/test/java/com/acme/shop/product/ProductServiceTest.java
+package com.acme.shop.product;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.*;
+
+import java.math.BigDecimal;
+import org.junit.jupiter.api.Test;
+
+class ProductServiceTest {
+
+    @Test
+    void rejectsDuplicateSku() {
+        ProductRepository repository = mock(ProductRepository.class);
+        when(repository.existsBySku("SKU-1")).thenReturn(true);
+
+        ProductService service = new ProductService(repository);
+
+        assertThrows(
+            DuplicateSkuException.class,
+            () -> service.create(
+                new CreateProductRequest("SKU-1", "Coffee", new BigDecimal("9.99"))
+            )
+        );
+
+        verify(repository, never()).save(any());
+    }
+}
+
+Run backend analysis:
+
+bash
+cd backend
+
+mvn clean verify sonar:sonar \
+  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.token=YOUR_TOKEN \
+  -Dsonar.qualitygate.wait=true
+
+SonarQube imports JaCoCo XML, not the old binary `.exec` report. The current property is `sonar.coverage.jacoco.xmlReportPaths`. [Coverage parameter reference](https://docs.sonarsource.com/sonarqube-server/analyzing-source-code/test-coverage/test-coverage-parameters)
+
+## 3. React/Vite + Vitest coverage + SonarQube
+
+Install scanner and coverage dependencies:
+
+bash
+cd frontend
+npm install -D @sonar/scan vitest @vitest/coverage-v8
+
+`frontend/vitest.config.ts`:
+
+ts
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      reportsDirectory: "./coverage",
+      exclude: [
+        "src/main.tsx",
+        "src//*.d.ts",
+        "src//index.ts"
+      ]
+    }
+  }
+});
+
+`frontend/sonar-project.properties`:
+
+properties
+sonar.projectKey=acme-shop-web
+sonar.projectName=Acme Shop Web
+
+sonar.sources=src
+sonar.tests=src
+sonar.test.inclusions=src//*.test.ts,src//*.test.tsx
+
+sonar.exclusions=/node_modules/,/dist/,/coverage/
+sonar.javascript.lcov.reportPaths=coverage/lcov.info
+
+sonar.sourceEncoding=UTF-8
+
+`frontend/package.json` scripts:
+
+json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "sonar": "npm run test:coverage && npx sonar"
+  }
+}
+
+A React component designed to avoid common quality issues:
+
+tsx
+// src/components/ProductList.tsx
+import { useEffect, useState } from "react";
+
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+export function ProductList() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProducts() {
+      try {
+        const response = await fetch("/api/products", {
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error("Could not load products.");
+        }
+
+        setProducts(await response.json() as Product[]);
+      } catch (cause) {
+        if ((cause as Error).name !== "AbortError") {
+          setError("Products are temporarily unavailable.");
+        }
+      }
+    }
+
+    void loadProducts();
+    return () => controller.abort();
+  }, []);
+
+  if (error) {
+    return <p role="alert">{error}</p>;
+  }
+
+  return (
+    <ul>
+      {products.map((product) => (
+        <li key={product.id}>
+          {product.name} — ₹{product.price.toFixed(2)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+Run it:
+
+bash
+npm run sonar \
+  -- --sonar.host.url=http://localhost:9000 \
+  --sonar.token=YOUR_TOKEN \
+  --sonar.qualitygate.wait=true
+
+For TypeScript and JavaScript, SonarQube consumes an LCOV report through `sonar.javascript.lcov.reportPaths`; it does not generate coverage itself. [Official JS/TS coverage setup](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/test-coverage/javascript-typescript-test-coverage)
+
+## 4. GitHub Actions: enforce the Quality Gate
+
+`.github/workflows/sonarqube.yml`:
+
+yaml
+name: Build, Test, and SonarQube
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Build, test, coverage, and scan backend
+        run: >
+          ./mvnw clean verify sonar:sonar
+          -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }}
+          -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+          -Dsonar.qualitygate.wait=true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install and test with coverage
+        run: |
+          npm ci
+          npm run test:coverage
+          npm run build
+
+      - name: Scan frontend
+        run: >
+          npx sonar
+          --sonar.host.url=${{ secrets.SONAR_HOST_URL }}
+          --sonar.token=${{ secrets.SONAR_TOKEN }}
+          --sonar.qualitygate.wait=true
+
+Set repository secrets:
+
+text
+SONAR_HOST_URL=https://sonarqube.company.internal
+SONAR_TOKEN=<project-analysis-token>
+
+Use a token in secrets, never in `pom.xml`, `package.json`, or committed properties files.
+
+## 5. Recommended Quality Gate policy
+
+Start with “new code” rules so legacy code does not block every delivery:
+
+| Metric on new code | Practical starting threshold |
+|---|---:|
+| New bugs | 0 |
+| New vulnerabilities | 0 |
+| New security hotspots reviewed | 100% |
+| New code coverage | ≥ 80% |
+| New duplicated lines | ≤ 3% |
+| Quality Gate | Must pass |
+
+This makes the gate a delivery control, not merely a dashboard.
+
+## Key FAQs
+
+Is SonarQube truly real time?  
+Not as a server scan after every keystroke. Use SonarQube for IDE for immediate editor feedback; use CI analysis as the shared, enforceable record.
+
+Does SonarQube replace tests, ESLint, Checkstyle, Snyk, or code review?  
+No. It complements them. Keep unit/integration tests; use ESLint for fast frontend conventions; use dependency/security tools as needed; retain human review.
+
+Why is coverage 0%?  
+Usually tests did not run before the scan, the report path is wrong, or the scanner cannot see the generated report. Verify:
+
+bash
+backend/target/site/jacoco/jacoco.xml
+frontend/coverage/lcov.info
+
+Why is React code not analyzed?  
+Check `sonar.sources=src`, ensure `src` exists from the scanner’s working directory, and do not accidentally exclude it with `sonar.exclusions`.
+
+Why is Java analysis incomplete?  
+Build first. Java analysis needs compiled bytecode, so use `mvn clean verify sonar:sonar`, not only `sonar:sonar`.
+
+Can one SonarQube project scan backend and frontend?  
+Yes, but two projects are usually clearer: separate ownership, coverage, quality history, and release lifecycles. Use a single project only when both are always built and released together.
+
+Can Community Edition analyze branches and pull requests?  
+Edition capabilities differ. Confirm your chosen SonarQube edition before designing PR decoration and branch strategy. PR analysis is designed to analyze issues introduced by the PR and use the project Quality Gate. [PR analysis overview](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/pull-request-analysis/introduction)
+
+Why does the scanner fail in CI but work locally?  
+Typical causes: unreachable server URL, untrusted TLS certificate, proxy/firewall, missing token, shallow Git checkout, unsupported Node/Java runtime, or missing coverage files. For current JS/TS scanning, Node must meet the scanner’s stated minimum; current documentation lists Node 18.20.0+. [NPM scanner requirements](https://docs.sonarsource.com/sonarqube-server/2025.4/analyzing-source-code/scanners/npm/installing)
+
+Should I set `sonar.qualitygate.wait=true`?  
+Yes for a blocking CI gate. It causes the scanner job to wait for server-side processing and fail the workflow when the gate fails.
+
+Should I suppress findings?  
+Only after reviewing them. Prefer fixing the code; otherwise mark a finding as False Positive or Accepted/Won’t Fix with a recorded rationale. Avoid broad exclusions and blanket `NOSONAR`.
+
+Should tests be analyzed as production source?  
+No. Define test paths correctly. Tests contribute coverage and test reporting, while main source is judged for production quality.
+
+How do I avoid analyzing generated code?  
+Exclude only generated/vendor/build directories, for example:
+
+properties
+sonar.exclusions=/generated/,/node_modules/,/dist/,/coverage/
+
+Does SonarQube find dependency vulnerabilities?  
+That depends on your SonarQube edition and enabled capabilities. Dependency analysis has specific edition and package-manager requirements; keep `pom.xml`, `package.json`, and lockfiles available to the scanner. [Dependency analysis guide](https://docs.sonarsource.com/sonarqube-server/2025.4/advanced-security/analyzing-projects-for-dependencies)
+
+The most useful next step is to apply this to your actual repository structure—Maven vs Gradle, React vs Next.js, and GitHub/GitLab/Jenkins—so paths, commands, and CI configuration match exactly.
+
+`-Dsonar.token=YOUR_TOKEN` is your secret authentication token that lets Maven/CI upload analysis results to SonarQube.
+
+Create it in SonarQube:
+
+1. Open `http://localhost:9000`
+2. Click your profile icon → My Account
+3. Open Security
+4. Generate a token, for example `local-api-scan`
+5. Copy it immediately—it is shown only once.
+
+Then run:
+
+bash
+mvn clean verify sonar:sonar \
+  -Dsonar.host.url=http://localhost:9000 \
+  -Dsonar.token=paste_your_real_token_here
+
+Example:
+
+bash
+-Dsonar.token=sqp_1234567890abcdef
+
+Do not commit the token into `pom.xml` or Git.
+
+`<sonar.projectKey>acme-shop-api</sonar.projectKey>` is different: it is the permanent ID of the SonarQube project that receives your backend results.
+
+In your `pom.xml`:
+
+xml
+<properties>
+  <sonar.projectKey>acme-shop-api</sonar.projectKey>
+  <sonar.projectName>Acme Shop API</sonar.projectName>
+</properties>
+
+It must exactly match the Project Key created in the SonarQube web dashboard.
+
+So:
+
+- `sonar.projectKey`: public, stable project identifier
+- `sonar.projectName`: display name in SonarQube
+- `sonar.token`: private password-like credential used by scanners/CI

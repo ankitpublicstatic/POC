@@ -1,0 +1,2250 @@
+Absolutely. For a **Java/Spring Boot production application**, three artifacts are especially important when diagnosing performance and stability problems:
+
+1. **Heap Dump** → What is consuming Java heap memory?
+2. **Thread Dump** → What are application threads doing?
+3. **GC Logs** → Why is garbage collection happening, and how much time is it consuming?
+
+A useful way to remember them:
+
+> **Heap Dump = Memory problem**
+> **Thread Dump = Thread/CPU/locking problem**
+> **GC Logs = Garbage Collection problem**
+
+These three are often used together.
+
+---
+
+# 1. First understand the JVM
+
+A simplified JVM looks like this:
+
+```text
+                    JVM PROCESS
+                         |
+        +----------------+----------------+
+        |                                 |
+     HEAP                             THREADS
+        |                                 |
+ +------+------+                  +-------+-------+
+ |             |                  |               |
+Young Gen   Old Gen             Thread 1       Thread 2
+ |             |                  |               |
+Eden       Old objects         Stack           Stack
+S0/S1
+```
+
+And there is another important area:
+
+```text
+JVM Memory
+│
+├── Heap
+│   ├── Eden
+│   ├── Survivor
+│   └── Old Generation
+│
+├── Metaspace
+│
+├── Thread Stacks
+│
+├── Code Cache
+│
+└── Native Memory
+```
+
+The three diagnostic tools primarily answer different questions.
+
+| Artifact    | Main question                                 |
+| ----------- | --------------------------------------------- |
+| Heap dump   | Why is heap memory growing?                   |
+| Thread dump | Why is application stuck/slow/CPU high?       |
+| GC logs     | Why is GC taking time / happening frequently? |
+
+---
+
+# 2. Heap Dump
+
+A **heap dump** is essentially a snapshot of objects currently existing in the JVM heap.
+
+Suppose your application has:
+
+```text
+-Xms2g
+-Xmx2g
+```
+
+and memory looks like:
+
+```text
+Heap
+2 GB
+│
+│                 ███████████
+│              ██████████████
+│           █████████████████
+│        ████████████████████
+│     ███████████████████████
+│
+└──────────────────────────────
+          1.8 GB used
+```
+
+You may wonder:
+
+> What objects are consuming this 1.8 GB?
+
+That's where the heap dump helps.
+
+---
+
+# 3. Java example — Memory Leak
+
+Consider this code:
+
+```java
+package com.example.demo;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MemoryLeakExample {
+
+    private static final List<byte[]> CACHE = new ArrayList<>();
+
+    public static void main(String[] args) {
+
+        while (true) {
+
+            byte[] data = new byte[1024 * 1024]; // 1 MB
+
+            CACHE.add(data);
+
+            System.out.println(
+                    "Objects stored = " + CACHE.size()
+            );
+
+        }
+    }
+}
+```
+
+Every loop creates:
+
+```text
+1 MB
+2 MB
+3 MB
+4 MB
+...
+```
+
+But this is the important part:
+
+```java
+CACHE.add(data);
+```
+
+The static list keeps references to all objects.
+
+Therefore GC cannot remove them.
+
+---
+
+# 4. Why GC cannot clean this memory
+
+Suppose:
+
+```text
+CACHE
+  |
+  +----> byte[] 1 MB
+  |
+  +----> byte[] 1 MB
+  |
+  +----> byte[] 1 MB
+  |
+  +----> byte[] 1 MB
+  |
+  +----> byte[] 1 MB
+```
+
+These objects are still reachable.
+
+GC works approximately like:
+
+```text
+GC Root
+  |
+  v
+CACHE
+  |
+  +--> byte[]
+  +--> byte[]
+  +--> byte[]
+```
+
+Because they are reachable from a GC Root, they are considered live.
+
+Therefore:
+
+```text
+GC cannot delete them
+```
+
+Eventually:
+
+```text
+java.lang.OutOfMemoryError: Java heap space
+```
+
+---
+
+# 5. Taking a Heap Dump
+
+For a running JVM:
+
+```bash
+jps -l
+```
+
+Example:
+
+```text
+12345 com.example.demo.DemoApplication
+```
+
+Then:
+
+```bash
+jmap -dump:live,format=b,file=heapdump.hprof 12345
+```
+
+Or:
+
+```bash
+jmap -dump:format=b,file=heapdump.hprof 12345
+```
+
+Difference:
+
+```text
+live
+```
+
+requests a dump containing objects considered live after GC.
+
+Without `live`, more objects may be included.
+
+---
+
+# 6. Better production approach — jcmd
+
+Modern JVMs commonly use:
+
+```bash
+jcmd 12345 GC.heap_dump /tmp/heapdump.hprof
+```
+
+You can first inspect:
+
+```bash
+jcmd 12345 GC.heap_info
+```
+
+Example:
+
+```text
+garbage-first heap   total 2048M, used 1850M
+```
+
+---
+
+# 7. Analyze Heap Dump
+
+Popular tools:
+
+* Eclipse MAT
+* VisualVM
+* JProfiler
+* YourKit
+
+For example, with Eclipse MAT you might see:
+
+```text
+Class                         Shallow Heap    Retained Heap
+
+byte[]                         1 MB           1.2 GB
+ArrayList                       24 B           1.2 GB
+HashMap                         48 B           500 MB
+String                          24 B           300 MB
+```
+
+The important concept is:
+
+## Shallow Heap
+
+Memory occupied by the object itself.
+
+Example:
+
+```java
+class User {
+
+    String name;
+    Address address;
+}
+```
+
+The `User` object itself might consume only a few dozen bytes.
+
+---
+
+# 8. Retained Heap
+
+Retained heap is much more important for leak investigation.
+
+Imagine:
+
+```text
+CACHE
+ |
+ +---- User
+ |      |
+ |      +---- Address
+ |      +---- String
+ |
+ +---- User
+        |
+        +---- Address
+```
+
+If removing `CACHE` would make all those objects eligible for GC, then `CACHE` has a large retained heap.
+
+So when investigating memory leaks:
+
+> **Look at retained heap, not just shallow heap.**
+
+---
+
+# 9. Common Heap Problems
+
+## Problem 1 — Static collection
+
+Bad:
+
+```java
+private static final List<User> USERS =
+        new ArrayList<>();
+```
+
+If you continuously add:
+
+```java
+USERS.add(user);
+```
+
+memory grows indefinitely.
+
+### Solution
+
+Use bounded cache:
+
+```java
+Cache<String, User> cache;
+```
+
+or:
+
+```java
+Caffeine
+Redis
+Ehcache
+```
+
+with:
+
+```text
+maximumSize
+TTL
+expiration
+```
+
+---
+
+# 10. Problem 2 — Unbounded cache
+
+Bad:
+
+```java
+Map<String, User> cache = new HashMap<>();
+
+public void add(User user) {
+
+    cache.put(user.getId(), user);
+}
+```
+
+If millions of users are inserted:
+
+```text
+HashMap
+   |
+   +---- millions of objects
+```
+
+### Solution
+
+Bound it:
+
+```text
+maximum entries
+TTL
+LRU
+expiration
+```
+
+---
+
+# 11. Problem 3 — Too many objects
+
+Consider:
+
+```java
+List<User> users = repository.findAll();
+```
+
+Suppose database contains:
+
+```text
+10 million rows
+```
+
+You just loaded all 10 million into memory.
+
+Bad.
+
+Instead:
+
+```java
+Page<User> users =
+        repository.findAll(PageRequest.of(0, 100));
+```
+
+or process using streaming/batching where appropriate.
+
+---
+
+# 12. Problem 4 — Huge JSON response
+
+Bad:
+
+```java
+@GetMapping("/users")
+public List<User> users() {
+
+    return userRepository.findAll();
+}
+```
+
+Suppose there are:
+
+```text
+5 million users
+```
+
+Your application may create:
+
+```text
+Database objects
+        ↓
+Java objects
+        ↓
+JSON objects
+        ↓
+JSON String / buffers
+        ↓
+HTTP response
+```
+
+Memory can explode.
+
+### Solution
+
+Use pagination:
+
+```http
+GET /users?page=0&size=100
+```
+
+---
+
+# 13. Problem 5 — ThreadLocal leak
+
+Example:
+
+```java
+private static final ThreadLocal<byte[]> DATA =
+        new ThreadLocal<>();
+
+public void process() {
+
+    DATA.set(new byte[10 * 1024 * 1024]);
+
+    // processing
+}
+```
+
+If this executes inside a thread pool and the ThreadLocal isn't removed, data can remain associated with the long-lived worker thread.
+
+Better:
+
+```java
+try {
+
+    DATA.set(new byte[10 * 1024 * 1024]);
+
+    // processing
+
+} finally {
+
+    DATA.remove();
+}
+```
+
+---
+
+# 14. Heap dump doesn't tell you everything
+
+Heap dump is excellent for:
+
+```text
+Memory leak
+Unexpected object growth
+Large collections
+Huge caches
+Duplicate objects
+Retained objects
+```
+
+But it does NOT directly answer:
+
+> Why is CPU 100%?
+
+For that you need:
+
+# Thread Dump
+
+---
+
+# 15. Thread Dump
+
+A thread dump is a snapshot of JVM threads and their current state.
+
+Example:
+
+```text
+"http-nio-8080-exec-10"
+
+RUNNABLE
+
+at com.example.OrderService.process(OrderService.java:50)
+at com.example.OrderController.create(OrderController.java:30)
+```
+
+It tells you:
+
+```text
+Which thread?
+What state?
+What code?
+Waiting for what?
+Holding which lock?
+```
+
+---
+
+# 16. Java Thread States
+
+Important states:
+
+```text
+NEW
+RUNNABLE
+BLOCKED
+WAITING
+TIMED_WAITING
+TERMINATED
+```
+
+---
+
+# 17. RUNNABLE
+
+Example:
+
+```java
+while (true) {
+    calculate();
+}
+```
+
+Thread might show:
+
+```text
+RUNNABLE
+
+at com.example.CalculationService.calculate(...)
+```
+
+Potential issue:
+
+```text
+Infinite loop
+CPU-heavy computation
+Busy waiting
+Bad algorithm
+```
+
+---
+
+# 18. BLOCKED
+
+This is extremely important.
+
+Example:
+
+```java
+public synchronized void process() {
+
+    // long operation
+}
+```
+
+Suppose:
+
+```text
+Thread-1
+   |
+   +-- owns lock
+
+Thread-2
+   |
+   +-- waiting for Thread-1
+```
+
+Thread-2 can appear:
+
+```text
+BLOCKED
+```
+
+---
+
+# 19. Deadlock Example
+
+```java
+public class DeadlockExample {
+
+    private final Object lock1 = new Object();
+    private final Object lock2 = new Object();
+
+    public void method1() {
+
+        synchronized (lock1) {
+
+            System.out.println("Lock1 acquired");
+
+            synchronized (lock2) {
+
+                System.out.println("Lock2 acquired");
+            }
+        }
+    }
+
+    public void method2() {
+
+        synchronized (lock2) {
+
+            System.out.println("Lock2 acquired");
+
+            synchronized (lock1) {
+
+                System.out.println("Lock1 acquired");
+            }
+        }
+    }
+}
+```
+
+Thread A:
+
+```text
+Lock1
+  ↓
+waiting for Lock2
+```
+
+Thread B:
+
+```text
+Lock2
+  ↓
+waiting for Lock1
+```
+
+Result:
+
+```text
+Thread A ────── waits ──────> Lock2
+   ↑                            |
+   |                            |
+   |                            ↓
+Lock1 <────── waits ─────── Thread B
+```
+
+Deadlock.
+
+---
+
+# 20. Solution — consistent lock ordering
+
+Always acquire locks in the same order:
+
+```java
+synchronized (lock1) {
+
+    synchronized (lock2) {
+
+        // work
+    }
+}
+```
+
+Both methods should follow:
+
+```text
+lock1
+  ↓
+lock2
+```
+
+Never:
+
+```text
+method1:
+lock1 → lock2
+
+method2:
+lock2 → lock1
+```
+
+---
+
+# 21. Taking Thread Dump
+
+First:
+
+```bash
+jps -l
+```
+
+Then:
+
+```bash
+jstack 12345
+```
+
+Save it:
+
+```bash
+jstack 12345 > threaddump.txt
+```
+
+Modern JVM:
+
+```bash
+jcmd 12345 Thread.print
+```
+
+You can take multiple thread dumps:
+
+```bash
+jstack PID > thread1.txt
+
+sleep 10
+
+jstack PID > thread2.txt
+
+sleep 10
+
+jstack PID > thread3.txt
+```
+
+This is much more useful than taking only one.
+
+Why?
+
+Because you can compare:
+
+```text
+T1
+T2
+T3
+```
+
+and see which threads remain stuck.
+
+---
+
+# 22. Example Thread Dump
+
+You might see:
+
+```text
+"pool-1-thread-5" #25
+
+java.lang.Thread.State: BLOCKED
+
+at com.example.OrderService.process(OrderService.java:85)
+
+- waiting to lock <0x000000076ab123>
+- locked <0x000000076ab456>
+```
+
+This tells us:
+
+```text
+Thread is BLOCKED
+```
+
+and:
+
+```text
+waiting for lock A
+```
+
+while holding:
+
+```text
+lock B
+```
+
+---
+
+# 23. WAITING
+
+Example:
+
+```java
+CompletableFuture
+```
+
+or:
+
+```java
+Object.wait();
+```
+
+Thread can show:
+
+```text
+WAITING
+```
+
+For example:
+
+```java
+synchronized (lock) {
+
+    lock.wait();
+}
+```
+
+The thread voluntarily waits.
+
+---
+
+# 24. TIMED_WAITING
+
+Example:
+
+```java
+Thread.sleep(5000);
+```
+
+Thread state:
+
+```text
+TIMED_WAITING
+```
+
+Also:
+
+```java
+future.get(10, TimeUnit.SECONDS);
+```
+
+or:
+
+```java
+BlockingQueue.poll(10, TimeUnit.SECONDS);
+```
+
+---
+
+# 25. Thread Pool Problem
+
+Consider Spring Boot:
+
+```java
+ExecutorService executor =
+        Executors.newFixedThreadPool(10);
+```
+
+Then:
+
+```java
+for (int i = 0; i < 10000; i++) {
+
+    executor.submit(() -> {
+
+        callExternalService();
+
+    });
+}
+```
+
+Suppose external service takes:
+
+```text
+30 seconds
+```
+
+Then:
+
+```text
+10 threads
+   ↓
+all waiting for external service
+```
+
+New requests cannot get workers.
+
+Application appears:
+
+```text
+VERY SLOW
+```
+
+---
+
+# 26. Thread Pool Exhaustion
+
+This is a common production problem.
+
+```text
+HTTP Requests
+     |
+     v
+Tomcat Thread Pool
+     |
+     v
+Application Thread Pool
+     |
+     +---- Thread 1 → DB
+     +---- Thread 2 → DB
+     +---- Thread 3 → DB
+     +---- Thread 4 → external API
+     +---- Thread 5 → external API
+     +---- ...
+```
+
+If all threads are waiting:
+
+```text
+Active = maximum
+Queue = growing
+```
+
+Eventually:
+
+```text
+timeouts
+503
+latency
+request failures
+```
+
+---
+
+# 27. Solution — Don't blindly increase threads
+
+A common mistake:
+
+> Application is slow → increase thread pool.
+
+Not always correct.
+
+If database supports only:
+
+```text
+100 connections
+```
+
+and you create:
+
+```text
+500 application threads
+```
+
+you may make things worse.
+
+You need to understand:
+
+```text
+CPU
+DB connection pool
+external API
+thread pool
+queue
+network
+```
+
+---
+
+# 28. GC Logs
+
+Now the third important diagnostic:
+
+# Garbage Collection Logs
+
+GC logs tell you:
+
+```text
+When GC occurred
+Which collector
+How much memory existed
+How much was reclaimed
+How long GC took
+How frequently GC happens
+```
+
+---
+
+# 29. Enable GC Logging — Java 17+
+
+For Java 17:
+
+```bash
+-Xlog:gc*:file=gc.log:time,uptime,level,tags
+```
+
+Example:
+
+```bash
+java \
+-Xms2g \
+-Xmx2g \
+-Xlog:gc*:file=/var/log/app/gc.log:time,uptime,level,tags \
+-jar application.jar
+```
+
+---
+
+# 30. Example GC Log
+
+You might see:
+
+```text
+[2026-09-08T10:10:10.123+0530]
+GC(25) Pause Young
+Total heap: 2048M
+Before: 1800M
+After: 900M
+Duration: 120ms
+```
+
+Interpretation:
+
+```text
+Before GC
+1800 MB
+
+GC
+
+After GC
+900 MB
+```
+
+So:
+
+```text
+~900 MB reclaimed
+```
+
+That's generally healthy.
+
+---
+
+# 31. Problematic GC Pattern
+
+Suppose logs show:
+
+```text
+Before    After
+
+1800 MB → 1700 MB
+1900 MB → 1800 MB
+1950 MB → 1900 MB
+2000 MB → 1950 MB
+```
+
+GC is running but reclaiming very little.
+
+This is suspicious.
+
+Why?
+
+Because most objects are still alive.
+
+Possible reasons:
+
+```text
+Memory leak
+Large cache
+Long-lived references
+Huge collections
+Too many active requests
+```
+
+---
+
+# 32. Young GC vs Old GC
+
+Conceptually:
+
+```text
+Young Generation
+       |
+       | Minor/Young GC
+       v
+Survivors
+       |
+       v
+Old Generation
+       |
+       | Major/Full GC
+       v
+Old objects
+```
+
+Most Java objects are short-lived.
+
+Example:
+
+```java
+public Response process(Request request) {
+
+    String temp = request.getName();
+
+    List<String> result = new ArrayList<>();
+
+    // temporary objects
+
+    return response;
+}
+```
+
+Many temporary objects become unreachable quickly.
+
+Young GC can clean them.
+
+---
+
+# 33. Why young GC is usually cheaper
+
+Suppose:
+
+```text
+1000 objects created
+```
+
+Only:
+
+```text
+10 objects survive
+```
+
+GC can efficiently reclaim most of them.
+
+But suppose:
+
+```text
+1000 objects
+900 survive
+```
+
+GC has more work.
+
+If Old Gen keeps filling:
+
+```text
+Old Gen
+████████████████████
+```
+
+you may eventually get:
+
+```text
+Full GC
+```
+
+or significant pauses depending on collector/configuration.
+
+---
+
+# 34. G1 GC
+
+Modern Java versions commonly use:
+
+```text
+G1GC
+```
+
+G1 divides heap into regions:
+
+```text
++---+---+---+---+---+
+|   |   |   |   |   |
++---+---+---+---+---+
+|   |   |   |   |   |
++---+---+---+---+---+
+```
+
+Regions can serve different roles:
+
+```text
+Eden
+Survivor
+Old
+```
+
+G1 attempts to meet pause-time goals while collecting regions strategically.
+
+Example:
+
+```bash
+-XX:+UseG1GC
+-XX:MaxGCPauseMillis=200
+```
+
+But:
+
+> Don't blindly tune GC before understanding the workload.
+
+---
+
+# 35. Common GC Problem #1 — High Allocation Rate
+
+Consider:
+
+```java
+public void process() {
+
+    for (int i = 0; i < 10_000_000; i++) {
+
+        String value =
+                new String("some value");
+
+        process(value);
+    }
+}
+```
+
+You're creating huge numbers of objects.
+
+Even if objects are short-lived:
+
+```text
+Allocation rate ↑
+        ↓
+Young GC frequency ↑
+        ↓
+CPU usage ↑
+```
+
+Solution:
+
+```text
+Reduce unnecessary object creation
+Reuse immutable values where appropriate
+Optimize serialization
+Batch operations
+Avoid excessive temporary collections
+```
+
+---
+
+# 36. Common GC Problem #2 — Memory Leak
+
+Example:
+
+```java
+static Map<String, byte[]> cache =
+        new HashMap<>();
+```
+
+Every request:
+
+```java
+cache.put(id, new byte[1024 * 1024]);
+```
+
+Then:
+
+```text
+Heap ↑
+Old Gen ↑
+GC frequency ↑
+GC duration ↑
+Eventually OOM
+```
+
+Heap dump will identify the retained objects.
+
+---
+
+# 37. Common GC Problem #3 — Large Object Allocation
+
+Suppose:
+
+```java
+byte[] data = new byte[100 * 1024 * 1024];
+```
+
+That's:
+
+```text
+100 MB
+```
+
+Large allocations can put pressure on the heap and collector.
+
+In G1, sufficiently large allocations may be treated as **humongous objects**.
+
+Repeated large allocations can create significant GC pressure.
+
+Solution:
+
+```text
+Streaming
+Chunking
+Pagination
+Multipart processing
+Avoid loading entire files into memory
+```
+
+---
+
+# 38. Very Important Production Scenario
+
+Imagine your Spring Boot API suddenly becomes slow.
+
+Metrics:
+
+```text
+CPU = 40%
+Memory = 95%
+Response time = 10 seconds
+```
+
+What do you do?
+
+Don't immediately restart the service.
+
+First investigate.
+
+---
+
+# 39. Step 1 — Check JVM memory
+
+```bash
+jcmd PID GC.heap_info
+```
+
+Check:
+
+```text
+Used heap
+Committed heap
+Maximum heap
+```
+
+---
+
+# 40. Step 2 — Check GC logs
+
+Look for:
+
+```text
+GC frequency
+Pause duration
+Old generation
+Full GC
+Allocation rate
+```
+
+Suppose:
+
+```text
+GC every 500 ms
+pause = 300 ms
+```
+
+That's bad.
+
+Application spends substantial time doing GC.
+
+---
+
+# 41. Step 3 — Take thread dumps
+
+```bash
+jstack PID > thread1.txt
+```
+
+Wait 10 seconds:
+
+```bash
+jstack PID > thread2.txt
+```
+
+Wait another 10 seconds:
+
+```bash
+jstack PID > thread3.txt
+```
+
+Compare them.
+
+Look for:
+
+```text
+BLOCKED
+RUNNABLE
+WAITING
+TIMED_WAITING
+```
+
+---
+
+# 42. Step 4 — Check CPU
+
+Linux:
+
+```bash
+top -H -p PID
+```
+
+This shows threads.
+
+Example:
+
+```text
+PID     CPU
+
+12350   95%
+12351   90%
+12352   2%
+```
+
+Find high CPU thread.
+
+Then convert thread ID to hexadecimal:
+
+```bash
+printf "%x\n" 12350
+```
+
+Suppose:
+
+```text
+12350
+```
+
+becomes:
+
+```text
+303e
+```
+
+Search thread dump:
+
+```text
+nid=0x303e
+```
+
+Now you know exactly what code that CPU-heavy thread is executing.
+
+---
+
+# 43. Example CPU problem
+
+Suppose:
+
+```java
+while (true) {
+
+    calculateSomething();
+}
+```
+
+Thread dump:
+
+```text
+"worker-1"
+
+RUNNABLE
+
+at com.example.CalculationService.calculate()
+```
+
+CPU:
+
+```text
+99%
+```
+
+Likely:
+
+```text
+Infinite loop
+or
+CPU-intensive calculation
+```
+
+---
+
+# 44. Example DB bottleneck
+
+Thread dump:
+
+```text
+"http-nio-8080-exec-20"
+
+WAITING
+
+at com.zaxxer.hikari.pool.HikariPool.getConnection(...)
+```
+
+Many threads show:
+
+```text
+HikariPool.getConnection
+```
+
+This strongly suggests DB connection pool pressure.
+
+Check:
+
+```properties
+spring.datasource.hikari.maximum-pool-size=20
+```
+
+Maybe:
+
+```text
+20 connections
+100 requests
+```
+
+80 requests wait.
+
+But don't simply change:
+
+```text
+20 → 100
+```
+
+First check database capacity.
+
+---
+
+# 45. Example external API bottleneck
+
+Thread dump:
+
+```text
+"http-nio-8080-exec-30"
+
+TIMED_WAITING
+
+at java.net.SocketInputStream.socketRead(...)
+```
+
+Many threads waiting here.
+
+Possible:
+
+```text
+External API slow
+Network problem
+Read timeout too high
+Connection pool exhausted
+```
+
+Solution:
+
+```java
+WebClient
+```
+
+with appropriate:
+
+```text
+connect timeout
+response timeout
+retry
+circuit breaker
+bulkhead
+```
+
+For example with Resilience4j:
+
+```java
+@CircuitBreaker(
+    name = "paymentService",
+    fallbackMethod = "fallback"
+)
+public PaymentResponse callPayment() {
+
+    return paymentClient.call();
+}
+```
+
+---
+
+# 46. Heap Dump + Thread Dump + GC Logs Together
+
+This is where things become powerful.
+
+Suppose:
+
+```text
+Heap:
+95%
+
+GC:
+very frequent
+
+Thread:
+many requests slow
+```
+
+Take heap dump.
+
+You discover:
+
+```text
+HashMap
+   |
+   +---- 5 million User objects
+```
+
+Then you find:
+
+```java
+static Map<String, User> cache;
+```
+
+Root cause:
+
+```text
+Unbounded cache
+```
+
+Fix:
+
+```text
+Bounded cache + TTL
+```
+
+---
+
+# 47. Another scenario
+
+Suppose:
+
+```text
+Heap = 50%
+GC = normal
+CPU = 100%
+```
+
+Heap dump isn't your first tool.
+
+Take thread dump.
+
+You find:
+
+```text
+worker-1 RUNNABLE
+worker-2 RUNNABLE
+worker-3 RUNNABLE
+```
+
+and all execute:
+
+```java
+calculateHugePrimeNumbers();
+```
+
+Root cause:
+
+```text
+CPU-bound workload
+```
+
+Solution:
+
+```text
+algorithm optimization
+reduce concurrency
+parallelism tuning
+CPU scaling
+```
+
+---
+
+# 48. Another scenario — Deadlock
+
+Metrics:
+
+```text
+CPU = 5%
+Memory = 40%
+Requests = hanging
+```
+
+Thread dump:
+
+```text
+Thread-1 BLOCKED
+Thread-2 BLOCKED
+```
+
+and JVM reports:
+
+```text
+Found one Java-level deadlock
+```
+
+Root cause:
+
+```text
+Lock ordering problem
+```
+
+Heap dump is unnecessary.
+
+GC logs are probably irrelevant.
+
+---
+
+# 49. Another scenario — OOM
+
+Application:
+
+```text
+java.lang.OutOfMemoryError: Java heap space
+```
+
+First question:
+
+> Is it a leak or simply insufficient heap?
+
+Take heap dump.
+
+Suppose:
+
+```text
+Old Gen = 95%
+
+Top retained object:
+
+HashMap
+  → 1.5 GB
+```
+
+Then:
+
+```text
+HashMap
+  → static Cache
+```
+
+That's likely a leak.
+
+But if:
+
+```text
+Application legitimately processes
+a 5 GB dataset
+```
+
+then architecture needs changing rather than simply increasing:
+
+```text
+-Xmx2g → -Xmx8g
+```
+
+---
+
+# 50. Don't solve every OOM by increasing Xmx
+
+Bad solution:
+
+```bash
+-Xmx2g
+```
+
+OOM
+
+↓
+
+```bash
+-Xmx4g
+```
+
+OOM
+
+↓
+
+```bash
+-Xmx8g
+```
+
+This can hide the actual problem.
+
+If there is a leak:
+
+```text
+2 GB
+ ↓
+4 GB
+ ↓
+8 GB
+ ↓
+16 GB
+ ↓
+OOM
+```
+
+Eventually the server itself may run out of memory.
+
+---
+
+# 51. Useful JVM commands
+
+### Find Java process
+
+```bash
+jps -l
+```
+
+### JVM information
+
+```bash
+jcmd PID VM.info
+```
+
+### Heap information
+
+```bash
+jcmd PID GC.heap_info
+```
+
+### Heap dump
+
+```bash
+jcmd PID GC.heap_dump /tmp/heap.hprof
+```
+
+### Thread dump
+
+```bash
+jcmd PID Thread.print
+```
+
+### System properties
+
+```bash
+jcmd PID VM.system_properties
+```
+
+### JVM flags
+
+```bash
+jcmd PID VM.flags
+```
+
+---
+
+# 52. jstat
+
+`jstat` is extremely useful for quick GC monitoring.
+
+```bash
+jstat -gc PID 1000
+```
+
+Meaning:
+
+```text
+PID
+ ↓
+sample every 1000 ms
+```
+
+You may see:
+
+```text
+S0C S1C S0U S1U EC EU OC OU MC MU
+```
+
+Important fields:
+
+```text
+EU = Eden Used
+OU = Old Used
+```
+
+Watch them over time.
+
+Example:
+
+```text
+Old Used
+
+500 MB
+700 MB
+900 MB
+1100 MB
+1300 MB
+1500 MB
+```
+
+If GC happens:
+
+```text
+1500 MB
+   ↓
+1450 MB
+```
+
+only a little is reclaimed.
+
+That deserves investigation.
+
+---
+
+# 53. Production JVM options
+
+A reasonable starting point for modern Java might look like:
+
+```bash
+java \
+-Xms4g \
+-Xmx4g \
+-XX:+UseG1GC \
+-XX:MaxGCPauseMillis=200 \
+-Xlog:gc*:file=/var/log/app/gc.log:time,uptime,level,tags \
+-jar application.jar
+```
+
+But these numbers are **not universal**.
+
+For example:
+
+```text
+4 GB heap
+```
+
+may be appropriate for one service and completely wrong for another.
+
+Tune based on:
+
+```text
+traffic
+allocation rate
+object lifetime
+CPU
+database
+latency SLA
+container memory limit
+```
+
+---
+
+# 54. Kubernetes consideration
+
+This is extremely important for modern Spring Boot applications.
+
+Suppose Kubernetes container:
+
+```text
+Memory limit = 4 GB
+```
+
+and you configure:
+
+```bash
+-Xmx4g
+```
+
+That's dangerous.
+
+Why?
+
+Because JVM process memory isn't only heap.
+
+You also have:
+
+```text
+Heap
++
+Metaspace
++
+Thread stacks
++
+Code cache
++
+Direct buffers
++
+Native memory
+```
+
+Therefore:
+
+```text
+Container memory
+      |
+      +-- Heap
+      +-- Metaspace
+      +-- Threads
+      +-- Native
+      +-- Direct buffers
+```
+
+The container can be OOM-killed even when:
+
+```text
+Java heap < Xmx
+```
+
+---
+
+# 55. Better container sizing concept
+
+For example:
+
+```text
+Container limit = 4 GB
+
+Heap = maybe 2.5–3 GB
+Remaining =
+    Metaspace
+    Threads
+    Direct memory
+    Native
+    JVM overhead
+```
+
+Exact sizing depends on the workload.
+
+You can also use:
+
+```bash
+-XX:MaxRAMPercentage=70
+```
+
+instead of hardcoding heap size, depending on your deployment model.
+
+---
+
+# 56. Heap Dump vs Thread Dump vs GC Logs
+
+This is the interview answer you should remember:
+
+### Heap Dump
+
+> A heap dump is a snapshot of objects in JVM heap at a particular point in time. It is primarily used to investigate memory leaks, excessive memory consumption, large collections, caches, and object retention.
+
+### Thread Dump
+
+> A thread dump is a snapshot of JVM threads and their states. It is primarily used to investigate deadlocks, blocked threads, thread pool exhaustion, high CPU, stuck requests, and concurrency issues.
+
+### GC Logs
+
+> GC logs provide a historical record of garbage collection activity, including GC frequency, pause duration, heap occupancy before and after GC, and collector behavior. They are used to identify excessive allocation, frequent GC, long pauses, and memory-pressure problems.
+
+---
+
+# 57. How they relate
+
+Think about a production incident:
+
+```text
+                    PRODUCTION SLOW
+                           |
+             +-------------+-------------+
+             |                           |
+          CPU HIGH                    MEMORY HIGH
+             |                           |
+       THREAD DUMP                    GC LOG
+             |                           |
+     What threads do?             Why GC happening?
+             |                           |
+             +-------------+-------------+
+                           |
+                     HEAP DUMP
+                           |
+                 What objects survive?
+```
+
+---
+
+# 58. A practical production troubleshooting flow
+
+When your Spring Boot service becomes slow:
+
+```text
+                    Incident
+                       |
+                       v
+                Check Metrics
+                       |
+       +---------------+---------------+
+       |                               |
+    CPU high                       Memory high
+       |                               |
+       v                               v
+ Thread dumps                       GC logs
+       |                               |
+       |                          Frequent GC?
+       |                               |
+       |                               v
+       |                          Heap dump
+       |                               |
+       +---------------+---------------+
+                       |
+                       v
+                  Root Cause
+```
+
+Also check:
+
+```text
+DB
+Redis
+Kafka
+external APIs
+network
+thread pools
+connection pools
+container limits
+```
+
+---
+
+# 59. Problems → Evidence → Solution
+
+| Problem            | Evidence                       | Tool                  | Typical solution                  |
+| ------------------ | ------------------------------ | --------------------- | --------------------------------- |
+| Memory leak        | Heap keeps growing             | Heap dump             | Remove unintended references      |
+| Unbounded cache    | Huge HashMap/ConcurrentHashMap | Heap dump             | TTL/max size                      |
+| Huge API response  | Huge object graph              | Heap dump             | Pagination/streaming              |
+| High CPU           | RUNNABLE threads               | Thread dump           | Optimize code/algorithm           |
+| Deadlock           | BLOCKED threads                | Thread dump           | Consistent lock ordering          |
+| Thread starvation  | Many waiting threads           | Thread dump           | Fix blocking operation/pool       |
+| DB pool exhaustion | Threads waiting for connection | Thread dump + metrics | Tune DB/pool/query                |
+| Frequent Young GC  | High allocation                | GC logs               | Reduce allocations                |
+| Long GC pauses     | Large pause times              | GC logs               | Analyze heap/allocation/collector |
+| Old Gen growth     | Objects survive GC             | GC logs + heap dump   | Find retained objects             |
+| OOM                | Heap exhausted                 | Heap dump + GC logs   | Fix leak/usage pattern            |
+| External API slow  | Socket wait                    | Thread dump           | Timeout/circuit breaker/bulkhead  |
+| Container OOM      | Pod killed                     | JVM/container metrics | Leave native-memory headroom      |
+
+---
+
+# 60. One very important interview scenario
+
+**Interviewer:**
+
+> Production API latency suddenly increased from 200 ms to 10 seconds. How will you troubleshoot?
+
+A strong answer:
+
+> First I would check application and infrastructure metrics such as CPU, memory, GC pause time, request rate, error rate, thread pool utilization, database connection pool utilization, and downstream latency.
+>
+> If CPU is high, I would take multiple thread dumps and identify RUNNABLE/high-CPU threads. If threads are BLOCKED, I would investigate lock contention or deadlocks. If many threads are WAITING or TIMED_WAITING, I would determine whether they are waiting on a database, external service, connection pool, queue, or other synchronization mechanism.
+>
+> If memory usage is high, I would inspect GC logs to determine whether the JVM is experiencing frequent GC, long pauses, or Old Generation growth. If objects continue surviving GC and heap usage keeps increasing, I would capture a heap dump and analyze retained heap, GC roots, large collections, caches, and object dominators.
+>
+> I would then correlate the evidence from metrics, thread dumps, GC logs, and heap dump rather than changing JVM parameters blindly.
+
+That's a **senior-level production troubleshooting answer**.
+
+---
+
+# 61. The most important mental model
+
+Remember this:
+
+```text
+                  JAVA PRODUCTION ISSUE
+                           |
+             +-------------+-------------+
+             |             |             |
+            CPU          MEMORY        LATENCY
+             |             |             |
+             v             v             v
+        THREAD DUMP     GC LOGS      THREAD DUMP
+             |             |             |
+             |             v             |
+             |        HEAP DUMP          |
+             |             |             |
+             +-------------+-------------+
+                           |
+                           v
+                       ROOT CAUSE
+```
+
+And the three artifacts answer:
+
+```text
+                    ┌─────────────────┐
+                    │   HEAP DUMP     │
+                    │                 │
+                    │ WHAT OBJECTS    │
+                    │ ARE IN MEMORY?  │
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │    GC LOGS      │
+                    │                 │
+                    │ WHY IS MEMORY   │
+                    │ BEING COLLECTED?│
+                    └────────┬────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │ THREAD DUMP     │
+                    │                 │
+                    │ WHAT ARE THREADS│
+                    │ DOING/WAITING?  │
+                    └─────────────────┘
+```
+
+For **Java/Spring Boot interviews**, the next level after this is to learn how to read **real `jstack`, `jmap`, `jstat`, and G1 GC log output line-by-line**, including a complete production incident involving **OOM → GC pressure → thread pool exhaustion → slow API**, and how to diagnose it from the dumps.

@@ -1,0 +1,26 @@
+Short answer: There’s no single fixed RPS number — an embedded Spring Boot + Tomcat process can handle anywhere from a few hundred to many thousands of requests per second depending on configuration, hardware, request cost, and tuning (thread pool, max-connections, accept queue, keep-alive, GC, and DB/IO).  
+
+What determines RPS (2–3 short points)
+- Worker threads (maxThreads) limit simultaneous request processing; default behavior is effectively ~200 threads unless you change it, so ~200 fully-blocking requests can be processed in parallel. 
+- Connector max-connections and accept-count control how many TCP connections and queued requests Tomcat will accept before rejecting new connections.  
+- Request cost (CPU, DB, network, synchronous blocking) sets per-request latency; RPS ≈ concurrent-processing / average-latency, so 200 threads with 200ms latency → ~1000 RPS. 
+
+Quick practical guidance (steps you can run)
+- Measure a realistic request (profile latency including DB/IO). Then calculate RPS target = maxThreads / avg_latency_seconds (example above).  
+- Tune server.tomcat.threads.max and server.tomcat.max-connections in application.yml/properties; increase threads for CPU-light, IO-blocking workloads and prefer non-blocking/reactive frameworks for large concurrency. 
+- Use load testing (wrk/hey/gatling) on representative infra, adding metrics (CPU, threads, GC, network) and iterate—do not rely on theoretical defaults.  
+- For very high RPS (tens of thousands+), scale horizontally behind a load balancer, use connection reuse (keep-alive), connection pooling for DB, asynchronous/reactive handlers, and tune JVM/G1 or ZGC.  
+
+Example calculation (illustration)
+- If maxThreads = 200 and average request time = 200 ms, estimated sustainable RPS ≈ 200 / 0.2 = 1000 RPS. 
+- If you need 10k RPS with same 200ms latency, you need ~2000 concurrent workers (threads or async), so either scale horizontally (10 instances) or move to non-blocking/reactive model.  
+
+Useful properties to check/tune
+- server.tomcat.threads.max (max worker threads). 
+- server.tomcat.max-connections and accept-count (connections queue).  
+- connection-timeout, keep-alive, and HTTP/2 concurrency settings for streaming.  
+- JVM GC and heap, OS limits (file descriptors), and network tuning (backlog).  
+
+If you want, I can:
+- run a short checklist tuned for your app (CPU vs IO-bound) and provide exact application.properties snippets; or
+- propose a load-test plan (wrk commands, target RPS, metrics to gather) to measure your real RPS on a given instance type.

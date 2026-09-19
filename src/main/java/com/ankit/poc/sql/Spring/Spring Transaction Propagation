@@ -1,0 +1,1763 @@
+Yes — this is one of the **most important Spring transaction interview topics**.
+
+The key point is:
+
+> **Two methods having `@Transactional` does NOT automatically mean two database transactions are created.**
+
+Whether there is **one transaction or multiple transactions** depends mainly on:
+
+1. Transaction propagation (`REQUIRED`, `REQUIRES_NEW`, etc.)
+2. Whether the method call goes through the **Spring proxy**
+3. Whether the second method is called from the same bean (`this.method2()`) or another Spring bean.
+
+---
+
+# 1. Simple case — both use `@Transactional`
+
+Suppose we have:
+
+```java
+@Service
+public class OrderService {
+
+    @Transactional
+    public void method1() {
+
+        System.out.println("Method 1");
+
+        method2();
+    }
+
+    @Transactional
+    public void method2() {
+
+        System.out.println("Method 2");
+    }
+}
+```
+
+And:
+
+```java
+orderService.method1();
+```
+
+### What happens?
+
+By default:
+
+```java
+@Transactional
+```
+
+uses:
+
+```java
+Propagation.REQUIRED
+```
+
+So conceptually:
+
+```text
+Caller
+   |
+   v
+Spring Proxy
+   |
+   |-- BEGIN TRANSACTION
+   |
+   v
+method1()
+   |
+   v
+method2()
+   |
+   |-- same transaction
+   |
+   v
+method1() returns
+   |
+   |-- COMMIT TRANSACTION
+```
+
+There is **ONE physical transaction**.
+
+Not two.
+
+---
+
+# 2. Why is there only one transaction?
+
+Because the default propagation is:
+
+```java
+Propagation.REQUIRED
+```
+
+Its meaning is:
+
+> "If a transaction already exists, use it. Otherwise create a new one."
+
+So when:
+
+```java
+method1()
+```
+
+starts:
+
+```text
+No transaction exists
+        ↓
+method1() @Transactional
+        ↓
+BEGIN TX-1
+```
+
+Now when `method2()` executes:
+
+```text
+method2() @Transactional
+        ↓
+Does transaction already exist?
+        ↓
+YES → TX-1
+        ↓
+Use TX-1
+```
+
+Therefore:
+
+```text
+method1() → TX-1
+method2() → TX-1
+```
+
+---
+
+# 3. But there is an important catch: self-invocation
+
+The previous example has another important concept.
+
+```java
+@Service
+public class OrderService {
+
+    @Transactional
+    public void method1() {
+        method2();
+    }
+
+    @Transactional
+    public void method2() {
+    }
+}
+```
+
+This:
+
+```java
+method2();
+```
+
+is actually:
+
+```java
+this.method2();
+```
+
+The call does **not go through the Spring proxy**.
+
+This is called:
+
+> **Self-invocation**
+
+And Spring's proxy-based transaction management cannot intercept that second call.
+
+---
+
+# 4. Does that mean method2 has no transaction?
+
+Not exactly.
+
+If `method1()` was called from outside:
+
+```java
+orderService.method1();
+```
+
+then Spring proxy intercepts `method1()`:
+
+```text
+Caller
+   |
+   v
+Spring Proxy
+   |
+   | @Transactional
+   | BEGIN TX-1
+   |
+   v
+method1()
+   |
+   | this.method2()
+   |
+   v
+method2()
+```
+
+Although `method2()`'s own `@Transactional` annotation is **not intercepted**, `method2()` is still executing **inside TX-1**.
+
+Therefore:
+
+```text
+method1() → TX-1
+method2() → TX-1
+```
+
+So you still have **one transaction**.
+
+But the important distinction is:
+
+> `method2()`'s `@Transactional` annotation is not being applied through the proxy.
+
+---
+
+# 5. Example where both methods are in different beans
+
+Now consider:
+
+```java
+@Service
+public class OrderService {
+
+    private final PaymentService paymentService;
+
+    public OrderService(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @Transactional
+    public void method1() {
+
+        System.out.println("Method 1");
+
+        paymentService.method2();
+    }
+}
+```
+
+And:
+
+```java
+@Service
+public class PaymentService {
+
+    @Transactional
+    public void method2() {
+
+        System.out.println("Method 2");
+    }
+}
+```
+
+Call:
+
+```java
+orderService.method1();
+```
+
+Now:
+
+```text
+Caller
+   |
+   v
+OrderService Proxy
+   |
+   | BEGIN TX-1
+   |
+   v
+OrderService.method1()
+   |
+   v
+PaymentService Proxy
+   |
+   | @Transactional(REQUIRED)
+   |
+   | Existing TX-1?
+   | YES
+   |
+   v
+PaymentService.method2()
+   |
+   | uses TX-1
+   |
+   v
+method1 returns
+   |
+   | COMMIT TX-1
+```
+
+Again:
+
+**ONE transaction.**
+
+---
+
+# 6. The most important propagation types
+
+This is where things become interesting.
+
+Spring supports several transaction propagation modes.
+
+The most important ones for interviews are:
+
+| Propagation     | Existing TX? | Behavior                      |
+| --------------- | ------------ | ----------------------------- |
+| `REQUIRED`      | Yes          | Join existing                 |
+| `REQUIRED`      | No           | Create new                    |
+| `REQUIRES_NEW`  | Yes          | Suspend existing + create new |
+| `REQUIRES_NEW`  | No           | Create new                    |
+| `NESTED`        | Yes          | Nested transaction/savepoint  |
+| `NESTED`        | No           | Usually behaves like REQUIRED |
+| `SUPPORTS`      | Yes          | Join                          |
+| `SUPPORTS`      | No           | Run without transaction       |
+| `NOT_SUPPORTED` | Yes          | Suspend transaction           |
+| `NOT_SUPPORTED` | No           | Run without transaction       |
+| `MANDATORY`     | Yes          | Join                          |
+| `MANDATORY`     | No           | Exception                     |
+| `NEVER`         | Yes          | Exception                     |
+| `NEVER`         | No           | Run without transaction       |
+
+For your question, the big three are:
+
+```text
+REQUIRED
+REQUIRES_NEW
+NESTED
+```
+
+---
+
+# 7. Case 1 — `REQUIRED` + `REQUIRED`
+
+```java
+@Transactional(propagation = Propagation.REQUIRED)
+public void method1() {
+
+    method2();
+}
+
+@Transactional(propagation = Propagation.REQUIRED)
+public void method2() {
+}
+```
+
+Assuming proxy interception is involved appropriately:
+
+```text
+method1
+   |
+   | BEGIN TX-1
+   |
+   v
+method2
+   |
+   | Existing TX-1
+   | JOIN
+   |
+   v
+method1
+   |
+   | COMMIT TX-1
+```
+
+### Result
+
+```text
+1 physical transaction
+```
+
+---
+
+# 8. Case 2 — `REQUIRED` + `REQUIRES_NEW`
+
+Now:
+
+```java
+@Transactional(propagation = Propagation.REQUIRED)
+public void method1() {
+
+    method2();
+}
+
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void method2() {
+}
+```
+
+Assume `method2()` is called through another Spring bean/proxy.
+
+Now things change.
+
+```text
+Caller
+  |
+  v
+method1()
+  |
+  | BEGIN TX-1
+  |
+  v
+method2()
+  |
+  | REQUIRES_NEW
+  |
+  | Suspend TX-1
+  |
+  | BEGIN TX-2
+  |
+  v
+method2()
+  |
+  | COMMIT TX-2
+  |
+  | Resume TX-1
+  |
+  v
+method1()
+  |
+  | COMMIT TX-1
+```
+
+Now there are:
+
+```text
+TX-1
+TX-2
+```
+
+### Two separate physical transactions.
+
+---
+
+# 9. Very important: `REQUIRES_NEW` does not mean nested transaction
+
+This is a common interview mistake.
+
+Suppose:
+
+```text
+TX-1
+  |
+  | method1
+  |
+  +---- TX-2
+          |
+          | method2
+```
+
+You might think:
+
+> TX-2 is inside TX-1.
+
+Logically yes, but from the database transaction perspective:
+
+**TX-2 is independent.**
+
+Spring does:
+
+```text
+Suspend TX-1
+      ↓
+Start TX-2
+      ↓
+Commit/Rollback TX-2
+      ↓
+Resume TX-1
+```
+
+Therefore TX-2 can commit even if TX-1 subsequently rolls back.
+
+---
+
+# 10. Example of `REQUIRES_NEW`
+
+Imagine:
+
+```java
+@Service
+public class OrderService {
+
+    private final AuditService auditService;
+
+    @Transactional
+    public void createOrder() {
+
+        orderRepository.save(order);
+
+        auditService.saveAudit();
+
+        throw new RuntimeException("Order failed");
+    }
+}
+```
+
+Audit:
+
+```java
+@Service
+public class AuditService {
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveAudit() {
+
+        auditRepository.save(audit);
+    }
+}
+```
+
+Flow:
+
+```text
+createOrder()
+     |
+     | TX-1
+     |
+     | save order
+     |
+     v
+saveAudit()
+     |
+     | suspend TX-1
+     |
+     | TX-2
+     |
+     | save audit
+     |
+     | COMMIT TX-2
+     |
+     | resume TX-1
+     |
+     v
+throw RuntimeException
+     |
+     | ROLLBACK TX-1
+```
+
+Final database state:
+
+```text
+Order → ROLLBACK ❌
+
+Audit → COMMITTED ✅
+```
+
+This is one of the main reasons people use:
+
+```java
+REQUIRES_NEW
+```
+
+for independent audit/logging operations.
+
+---
+
+# 11. Case 3 — `NESTED`
+
+Now:
+
+```java
+@Transactional
+public void method1() {
+
+    method2();
+}
+
+@Transactional(propagation = Propagation.NESTED)
+public void method2() {
+}
+```
+
+With a transaction-capable resource such as JDBC where nested transaction support is available, Spring can use a **savepoint**.
+
+Conceptually:
+
+```text
+TX-1
+ |
+ | method1
+ |
+ | SAVEPOINT
+ |
+ | method2
+ |
+ | rollback to SAVEPOINT
+ |
+ | continue TX-1
+ |
+ | COMMIT TX-1
+```
+
+So:
+
+```text
+NESTED ≠ REQUIRES_NEW
+```
+
+### `REQUIRES_NEW`
+
+```text
+TX-1 suspended
+TX-2 starts
+```
+
+### `NESTED`
+
+```text
+TX-1
+ |
+ +-- SAVEPOINT
+ |
+ +-- nested work
+ |
+ +-- rollback to savepoint
+ |
+ +-- continue TX-1
+```
+
+This distinction is extremely important.
+
+---
+
+# 12. What happens when method2 throws an exception?
+
+Consider:
+
+```java
+@Transactional
+public void method1() {
+
+    method2();
+}
+
+@Transactional
+public void method2() {
+
+    throw new RuntimeException("Something failed");
+}
+```
+
+Because both use:
+
+```text
+REQUIRED
+```
+
+they share:
+
+```text
+TX-1
+```
+
+So:
+
+```text
+method1()
+   |
+   | TX-1
+   |
+   v
+method2()
+   |
+   | exception
+   |
+   v
+rollback TX-1
+```
+
+The entire transaction rolls back.
+
+---
+
+# 13. What if method1 catches method2's exception?
+
+This is more interesting.
+
+```java
+@Transactional
+public void method1() {
+
+    try {
+        method2();
+    } catch (Exception e) {
+        System.out.println("Exception handled");
+    }
+
+    orderRepository.save(order);
+}
+```
+
+And:
+
+```java
+@Transactional
+public void method2() {
+
+    paymentRepository.save(payment);
+
+    throw new RuntimeException("Payment failed");
+}
+```
+
+Many developers incorrectly think:
+
+> "I caught the exception, so the transaction will commit."
+
+Not necessarily.
+
+Because `method2()` can mark the transaction as:
+
+```text
+rollback-only
+```
+
+Then method1 continues:
+
+```text
+TX-1
+ |
+ | method2()
+ |
+ | exception
+ |
+ | TX marked rollback-only
+ |
+ | exception caught
+ |
+ | method1 continues
+ |
+ | method1 returns
+ |
+ | COMMIT attempted
+ |
+ | Spring sees rollback-only
+ |
+ | ROLLBACK
+```
+
+You may get:
+
+```text
+UnexpectedRollbackException
+```
+
+This is a very important Spring interview scenario.
+
+---
+
+# 14. Why does `UnexpectedRollbackException` happen?
+
+Example:
+
+```java
+@Transactional
+public void method1() {
+
+    try {
+        method2();
+    } catch (RuntimeException e) {
+        System.out.println("Caught");
+    }
+
+    repository.save(data);
+}
+```
+
+```java
+@Transactional
+public void method2() {
+
+    repository.save(data2);
+
+    throw new RuntimeException();
+}
+```
+
+Both:
+
+```text
+method1 → REQUIRED
+method2 → REQUIRED
+```
+
+Therefore:
+
+```text
+method1
+  |
+  TX-1
+  |
+  method2
+  |
+  exception
+  |
+  TX-1 marked rollback-only
+```
+
+Even though the exception is caught:
+
+```text
+TX-1 = rollback-only
+```
+
+At the end:
+
+```text
+ROLLBACK
+```
+
+Potentially:
+
+```text
+UnexpectedRollbackException
+```
+
+---
+
+# 15. What if method2 uses `REQUIRES_NEW`?
+
+Now:
+
+```java
+@Transactional
+public void method1() {
+
+    try {
+        method2();
+    } catch (Exception e) {
+        System.out.println("Caught");
+    }
+
+    orderRepository.save(order);
+}
+```
+
+And:
+
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void method2() {
+
+    paymentRepository.save(payment);
+
+    throw new RuntimeException();
+}
+```
+
+Flow:
+
+```text
+TX-1
+ |
+ | method1
+ |
+ | suspend TX-1
+ |
+ +---- TX-2
+       |
+       | method2
+       |
+       | exception
+       |
+       | ROLLBACK TX-2
+       |
+       +---->
+ |
+ | resume TX-1
+ |
+ | catch exception
+ |
+ | save order
+ |
+ | COMMIT TX-1
+```
+
+Final result:
+
+```text
+method2 data → ROLLBACK
+method1 data → COMMIT
+```
+
+assuming the exception is handled and nothing else causes TX-1 to roll back.
+
+---
+
+# 16. The Spring Transaction Proxy is critical
+
+This is probably the **most important internal concept** to understand.
+
+Spring typically doesn't modify your method directly.
+
+Instead, conceptually:
+
+```text
+Your object:
+
+OrderService
+     |
+     +-- method1()
+     +-- method2()
+```
+
+Spring creates a proxy:
+
+```text
+Caller
+  |
+  v
+OrderServiceProxy
+  |
+  | TransactionInterceptor
+  |
+  v
+OrderService
+```
+
+When you call:
+
+```java
+orderService.method1();
+```
+
+you are usually calling:
+
+```text
+Proxy.method1()
+```
+
+not directly:
+
+```text
+OrderService.method1()
+```
+
+The proxy does roughly:
+
+```java
+beginTransaction();
+
+try {
+
+    target.method1();
+
+    commit();
+
+} catch (Exception e) {
+
+    rollback();
+
+    throw e;
+}
+```
+
+That's a simplified representation, but conceptually accurate.
+
+---
+
+# 17. What happens during a proxy call?
+
+For:
+
+```java
+@Transactional
+public void method1() {
+    method2();
+}
+```
+
+External call:
+
+```java
+orderService.method1();
+```
+
+becomes conceptually:
+
+```text
+Caller
+   |
+   v
+Proxy
+   |
+   | TransactionInterceptor
+   |
+   | Check @Transactional
+   |
+   | Check propagation
+   |
+   | BEGIN TX
+   |
+   v
+Target.method1()
+```
+
+Inside:
+
+```java
+method2();
+```
+
+is:
+
+```java
+this.method2();
+```
+
+So:
+
+```text
+Target.method1()
+       |
+       +---- this.method2()
+```
+
+The proxy is bypassed.
+
+---
+
+# 18. Why does self-invocation matter for `REQUIRES_NEW`?
+
+This is a fantastic interview question.
+
+Suppose:
+
+```java
+@Service
+public class OrderService {
+
+    @Transactional
+    public void method1() {
+
+        method2();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void method2() {
+    }
+}
+```
+
+You might expect:
+
+```text
+TX-1
+ |
+ | method1
+ |
+ | suspend TX-1
+ |
+ | TX-2
+ |
+ | method2
+```
+
+But that's **not what happens** with self-invocation.
+
+Because:
+
+```java
+method2();
+```
+
+is:
+
+```java
+this.method2();
+```
+
+The proxy isn't involved.
+
+Therefore `REQUIRES_NEW` is not applied.
+
+Conceptually:
+
+```text
+Proxy
+ |
+ | TX-1
+ |
+ v
+method1()
+ |
+ | this.method2()
+ |
+ v
+method2()
+```
+
+Still:
+
+```text
+TX-1
+```
+
+There is **no TX-2**.
+
+---
+
+# 19. How do you correctly use `REQUIRES_NEW`?
+
+Put the second method into another Spring bean.
+
+### OrderService
+
+```java
+@Service
+public class OrderService {
+
+    private final AuditService auditService;
+
+    public OrderService(AuditService auditService) {
+        this.auditService = auditService;
+    }
+
+    @Transactional
+    public void createOrder() {
+
+        orderRepository.save(order);
+
+        auditService.saveAudit();
+    }
+}
+```
+
+### AuditService
+
+```java
+@Service
+public class AuditService {
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveAudit() {
+
+        auditRepository.save(audit);
+    }
+}
+```
+
+Now:
+
+```text
+OrderService Proxy
+       |
+       | TX-1
+       |
+       v
+createOrder()
+       |
+       v
+AuditService Proxy
+       |
+       | REQUIRES_NEW
+       |
+       | suspend TX-1
+       |
+       | TX-2
+       |
+       v
+saveAudit()
+       |
+       | commit TX-2
+       |
+       | resume TX-1
+```
+
+This works because the second call goes through:
+
+```text
+AuditService Proxy
+```
+
+---
+
+# 20. What exactly is a transaction?
+
+A useful mental model is:
+
+```text
+@Transactional
+      ↓
+TransactionInterceptor
+      ↓
+TransactionManager
+      ↓
+Database Connection
+      ↓
+Database Transaction
+```
+
+For a typical JDBC/JPA application:
+
+```text
+Spring Transaction
+        |
+        v
+Transaction Manager
+        |
+        v
+Database Connection
+        |
+        v
+Database Transaction
+```
+
+Spring binds the transactional resource, commonly the JDBC connection / JPA resources, to the current execution thread.
+
+So when multiple repository operations execute within the same transaction, they participate in the same transactional context.
+
+---
+
+# 21. Does `@Transactional` create a new database connection every time?
+
+**No.**
+
+This is another common misconception.
+
+For:
+
+```java
+@Transactional
+public void method1() {
+
+    method2();
+}
+```
+
+with `REQUIRED`:
+
+```text
+method1
+   |
+   | Connection C1
+   | TX-1
+   |
+   v
+method2
+   |
+   | Connection C1
+   | TX-1
+```
+
+Not:
+
+```text
+method1 → Connection C1
+method2 → Connection C2
+```
+
+With `REQUIRES_NEW`, however, the transaction manager may need another connection while the first transaction is suspended:
+
+```text
+TX-1 → Connection C1
+          |
+          | suspend
+          |
+TX-2 → Connection C2
+```
+
+This has important connection-pool implications.
+
+---
+
+# 22. Connection pool danger with `REQUIRES_NEW`
+
+Suppose you have:
+
+```text
+maximumPoolSize = 10
+```
+
+And 10 threads are already inside transactions:
+
+```text
+Thread 1 → TX-1 → Connection 1
+Thread 2 → TX-2 → Connection 2
+...
+Thread 10 → TX-10 → Connection 10
+```
+
+If each transaction calls:
+
+```java
+REQUIRES_NEW
+```
+
+the outer connections may remain held while the inner transaction requests another connection.
+
+You can end up with:
+
+```text
+10 connections occupied
++
+10 requests for new connections
+```
+
+This can cause:
+
+```text
+connection pool exhaustion
+```
+
+and potentially deadlock-like resource starvation.
+
+Therefore:
+
+> Don't use `REQUIRES_NEW` casually in high-throughput applications.
+
+---
+
+# 23. Complete comparison
+
+Let's assume:
+
+```java
+method1()
+   |
+   v
+method2()
+```
+
+### `REQUIRED`
+
+```text
+method1 → TX-1
+             |
+             v
+          method2
+             |
+             v
+          TX-1
+```
+
+**One transaction.**
+
+---
+
+### `REQUIRES_NEW`
+
+```text
+method1 → TX-1
+             |
+             | suspend
+             v
+          method2 → TX-2
+             |
+             | commit TX-2
+             v
+          resume TX-1
+```
+
+**Two independent transactions.**
+
+---
+
+### `NESTED`
+
+```text
+method1 → TX-1
+             |
+             +-- SAVEPOINT
+             |
+             v
+          method2
+             |
+             +-- rollback to SAVEPOINT
+             |
+             v
+          continue TX-1
+```
+
+**One physical transaction with a savepoint** in supported configurations.
+
+---
+
+# 24. What if method1 has no `@Transactional`?
+
+Suppose:
+
+```java
+public void method1() {
+
+    method2();
+}
+
+@Transactional
+public void method2() {
+}
+```
+
+If `method2()` is called through a Spring proxy:
+
+```text
+method1
+   |
+   v
+method2
+   |
+   | @Transactional
+   |
+   | BEGIN TX-1
+   |
+   v
+method2 work
+   |
+   | COMMIT
+```
+
+Then only `method2()` is transactional.
+
+But if it's self-invocation:
+
+```java
+this.method2();
+```
+
+then `@Transactional` on `method2()` may not be applied.
+
+---
+
+# 25. What if method1 is `REQUIRED` and method2 is `SUPPORTS`?
+
+```java
+@Transactional(REQUIRED)
+method1()
+
+@Transactional(SUPPORTS)
+method2()
+```
+
+Existing transaction:
+
+```text
+method1 → TX-1
+             |
+             v
+          method2
+             |
+             | SUPPORTS
+             | join TX-1
+```
+
+So:
+
+```text
+TX-1
+```
+
+---
+
+# 26. What if method1 is `REQUIRED` and method2 is `NOT_SUPPORTED`?
+
+```java
+@Transactional(REQUIRED)
+method1()
+
+@Transactional(NOT_SUPPORTED)
+method2()
+```
+
+Flow:
+
+```text
+method1
+   |
+   | TX-1
+   |
+   v
+method2
+   |
+   | suspend TX-1
+   |
+   | NO TRANSACTION
+   |
+   v
+method2 completes
+   |
+   | resume TX-1
+   |
+   v
+method1
+   |
+   | commit TX-1
+```
+
+---
+
+# 27. What if method2 is `MANDATORY`?
+
+```java
+@Transactional
+method1()
+
+@Transactional(propagation = Propagation.MANDATORY)
+method2()
+```
+
+Because method1 already created a transaction:
+
+```text
+method1 → TX-1
+             |
+             v
+          method2
+             |
+             | MANDATORY
+             | Existing TX?
+             | YES
+             |
+             v
+          use TX-1
+```
+
+Works.
+
+But if:
+
+```java
+method2();
+```
+
+is called without an existing transaction:
+
+```text
+method2()
+   |
+   | MANDATORY
+   |
+   | No transaction
+   |
+   X
+   |
+   IllegalTransactionStateException
+```
+
+---
+
+# 28. Transaction boundary vs method boundary
+
+This is the key mental model.
+
+Don't think:
+
+```text
+@Transactional method
+       =
+one transaction
+```
+
+Instead think:
+
+```text
+@Transactional method
+       ↓
+transaction interceptor
+       ↓
+propagation decision
+       ↓
+transaction boundary
+```
+
+Multiple methods can belong to the **same transaction**.
+
+For example:
+
+```text
+TX-1
+ |
+ +-- method1()
+ |
+ +-- method2()
+ |
+ +-- repository.save()
+ |
+ +-- repository.update()
+ |
+ +-- method3()
+ |
+ +-- repository.delete()
+ |
+ +-- COMMIT
+```
+
+There can be 10 transactional methods participating in:
+
+```text
+ONE transaction
+```
+
+---
+
+# 29. Interview answer you can memorize
+
+If interviewer asks:
+
+> **"If method A and method B both have `@Transactional` and A calls B, how many transactions are created?"**
+
+Say:
+
+> By default, `@Transactional` uses `Propagation.REQUIRED`. If method A starts a transaction and then calls method B, B will join the existing transaction rather than creating another transaction. Therefore, normally there is one physical transaction shared by both methods.
+>
+> However, if B uses `Propagation.REQUIRES_NEW` and the call goes through the Spring proxy, Spring suspends A's transaction and creates a new transaction for B. After B completes, the original transaction is resumed.
+>
+> Also, self-invocation is important. If A and B are in the same Spring bean and A calls B using `this.methodB()`/direct method invocation, B's `@Transactional` annotation is not intercepted by the Spring proxy. Therefore propagation settings such as `REQUIRES_NEW` on B won't take effect.
+
+---
+
+# 30. The complete picture
+
+Keep this diagram in your head:
+
+```text
+                         Spring Proxy
+                              |
+                              v
+                       @Transactional
+                              |
+                    ┌─────────┴─────────┐
+                    │ Propagation?      │
+                    └─────────┬─────────┘
+                              |
+             ┌────────────────┼────────────────┐
+             │                │                │
+          REQUIRED       REQUIRES_NEW       NESTED
+             │                │                │
+             v                v                v
+       Existing TX?      Suspend TX-1       Existing TX?
+        /      \              |             /       \
+      YES       NO            v            YES       NO
+       |         |          TX-2            |         |
+       v         v            |             v         v
+    Join TX-1  TX-1        Commit/       SAVEPOINT   TX-1
+                            rollback
+                               |
+                               v
+                           Resume TX-1
+```
+
+And remember the second rule:
+
+```text
+External call
+     |
+     v
+Spring Proxy
+     |
+     v
+@Transactional works
+```
+
+versus:
+
+```text
+method1()
+   |
+   +-- this.method2()
+           |
+           X
+       Proxy bypassed
+```
+
+---
+
+## The 5 things you should always check
+
+Whenever you see two `@Transactional` methods, ask these questions in order:
+
+**1. What is the propagation?**
+
+```java
+REQUIRED?
+REQUIRES_NEW?
+NESTED?
+```
+
+**2. Is there already an active transaction?**
+
+```text
+YES → propagation decides what happens
+NO  → propagation decides whether one starts
+```
+
+**3. Is the call going through a Spring proxy?**
+
+```text
+anotherBean.method()
+       ↓
+YES → intercepted
+
+this.method()
+       ↓
+NO → proxy bypassed
+```
+
+**4. What exception occurred?**
+
+```text
+RuntimeException
+Error
+checked Exception
+```
+
+The rollback rules matter.
+
+**5. Which transaction is actually committing?**
+
+This is especially important with:
+
+```java
+REQUIRES_NEW
+```
+
+because you can have:
+
+```text
+TX-1 → ROLLBACK
+TX-2 → COMMIT
+```
+
+or:
+
+```text
+TX-1 → COMMIT
+TX-2 → ROLLBACK
+```
+
+independently.
+
+### One-line summary
+
+```text
+@Transactional + @Transactional
+          ↓
+     Usually ONE TX
+          ↓
+because REQUIRED joins existing TX
+
+REQUIRES_NEW + proxy
+          ↓
+     TWO TXs
+          ↓
+TX-1 suspended → TX-2 → TX-1 resumed
+
+Self invocation
+          ↓
+    Spring proxy bypassed
+          ↓
+second method's @Transactional
+      is not intercepted
+```
+
+This topic becomes even more important when you combine it with **JPA/Hibernate, `save()`, flush, rollback-only, checked vs unchecked exceptions, async (`@Async`), Kafka, and multiple datasources**, because those introduce several common production bugs.

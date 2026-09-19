@@ -870,8 +870,7 @@ Spring often injects:
 
 ### JDK Proxy
 
-```text
-PaymentService -> Proxy -> Implementation
+```PaymentService -> Proxy -> Implementation
 ```
 
 Requires:

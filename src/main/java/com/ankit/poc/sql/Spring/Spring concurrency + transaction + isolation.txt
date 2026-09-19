@@ -170,7 +170,7 @@ public class AccountService {
 
 * Row-level exclusive lock
 * Lock held until commit
-* WAL ensures durability
+* WAL (Write-Ahead Logging) ensures durability
 * Isolation = `READ COMMITTED` or higher
 
 ---
@@ -204,8 +204,7 @@ public class Account {
 * Debit commits → version becomes 2
 * Credit tries to commit with version 1 → ❌ fails
 
-```text
-OptimisticLockException
+```OptimisticLockException
 ```
 
 ### Retry logic needed

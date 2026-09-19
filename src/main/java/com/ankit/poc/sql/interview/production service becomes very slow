@@ -1,0 +1,175 @@
+
+4. What if a production service becomes very slow?
+
+This is an extremely important senior-level interview question.
+
+Don't immediately restart the service.
+
+First determine:
+
+Is latency caused by:
+
+CPU?
+Memory?
+GC?
+Database?
+External API?
+Thread pool?
+Connection pool?
+Lock?
+Network?
+Kafka?
+Disk?
+
+
+Step 1 — Check metrics
+
+Look at:
+
+CPU
+Memory
+Heap
+GC
+Thread count
+Request rate
+Error rate
+Latency
+DB connections
+HTTP connections
+Kafka lag
+
+Use:
+
+Prometheus
+Grafana
+APM
+OpenTelemetry
+
+
+Step 2 — Check latency
+
+Suppose:
+
+p50 = 100ms
+p95 = 800ms
+p99 = 5s
+
+This tells you tail latency is bad.
+
+Find which endpoint is responsible.
+
+
+Step 3 — Thread pool
+
+Suppose:
+
+Tomcat threads = 200
+
+Active = 200
+Queue = 1000
+
+This is suspicious.
+
+Maybe downstream dependency is slow.
+
+Example:
+
+Request
+ ↓
+Spring Boot
+ ↓
+DB
+ ↓
+DB takes 10 seconds
+
+Threads stay blocked.
+
+Eventually:
+
+all 200 threads busy
+↓
+new requests wait
+↓
+latency increases
+↓
+timeouts
+↓
+service appears dead
+
+
+Step 4 — Database
+
+Check:
+
+sql
+SHOW PROCESSLIST;
+
+Look for:
+
+- long-running queries
+- locks
+- missing indexes
+- connection exhaustion
+- deadlocks
+- slow queries
+
+Use slow query logging / query plans.
+
+
+Step 5 — GC
+
+If:
+
+CPU = high
+GC time = high
+
+possible excessive allocation or heap pressure.
+
+Take:
+
+heap dump
+thread dump
+GC logs
+
+
+Step 6 — Thread dump
+
+Use:
+
+bash
+jstack <pid>
+
+or JVM diagnostic tools.
+
+Look for:
+
+BLOCKED
+WAITING
+TIMED_WAITING
+
+If 100 threads are waiting on the same lock:
+
+synchronized(lock)
+
+you found a bottleneck.
+
+
+Step 7 — External dependency
+
+Suppose:
+
+Our API p99 = 8 sec
+
+DB = 100ms
+Payment API = 7 sec
+
+Then your application isn't necessarily the root cause.
+
+Fix:
+
+timeout
+retry
+circuit breaker
+bulkhead
+async processing
+fallback

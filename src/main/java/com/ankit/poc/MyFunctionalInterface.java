@@ -1,6 +1,6 @@
 package com.ankit.poc;
 
-
+@FunctionalInterface
 public interface MyFunctionalInterface {
 
   void m1();

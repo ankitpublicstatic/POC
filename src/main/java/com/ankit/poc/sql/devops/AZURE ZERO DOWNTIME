@@ -1087,8 +1087,7 @@ Used for:
  Tenants
  Authenticated users
 
-```text
-Key: tenant:{id}
+```Key: tenant:{id}
 Algorithm: Token Bucket
 Storage: Redis Cluster
 ```

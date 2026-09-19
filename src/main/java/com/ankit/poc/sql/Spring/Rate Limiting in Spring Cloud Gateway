@@ -332,8 +332,7 @@ For strict windows → custom Redis script.
 
 ## 🔥 4. Combine with Circuit Breaker
 
-```text
-Rate Limit → Retry → Circuit Breaker
+```Rate Limit → Retry → Circuit Breaker
 ```
 
 Correct order:

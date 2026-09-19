@@ -1,0 +1,81 @@
+Great, this is core distributed-systems knowledge.  
+I’ll explain this clearly + deeply, with real Java examples, and also how these patterns work together in production.
+
+PART 1️⃣ — Saga vs 2PC (Two-Phase Commit)
+
+1. What is 2PC?
+
+> Two-Phase Commit (2PC) is a distributed transaction protocol that ensures atomicity across multiple services / databases.
+
+Phases
+1. Prepare Phase
+   - Coordinator asks all participants:
+     > “Can you commit?”
+2. Commit Phase
+   - If all say YES → commit
+   - If any say NO → rollback
+
+2PC Flow
+          Coordinator
+           /      \
+     Service A   Service B
+       DB           DB
+
+1. PREPARE
+2. LOCK resources
+3. COMMIT / ROLLBACK
+
+2. Problems with 2PC ❌
+
+| Problem          | Explanation                |
+|------------------|----------------------------|
+| Blocking         | Participants hold DB locks |
+| Single point of failure | Coordinator crash   |
+| Poor scalability | Locks kill throughput      |
+| Cloud-unfriendly | Microservices avoid XA     |
+| Latency          | Multiple round trips       |
+
+📌 2PC ≈ monolith-era solution
+
+3. What is Saga?
+
+> Saga breaks a distributed transaction into multiple local transactions, coordinated via events or messages, with compensation on failure.
+
+4. Saga Flow (Recap)
+
+Order → Payment → Inventory → Shipping
+Each step:
+- Commits locally
+- Publishes event
+- On failure → compensates
+
+---
+
+5. Saga vs 2PC — Comparison Table
+
+| Feature | 2PC | Saga |
+|----|----|----|
+| Atomicity | Strong | Eventual |
+| Consistency | Strong | Eventual |
+| Locks | Yes | No |
+| Scalability | ❌ Low | ✅ High |
+| Failure handling | Blocking | Compensating |
+| Cloud-native | ❌ | ✅ |
+| Microservices | ❌ | ✅ |
+| Latency | High | Low |
+
+6. When to Use Which?
+
+Use 2PC when:
+- Single DB cluster
+- Strong consistency required
+- Low throughput
+- Legacy systems
+
+Use Saga when:
+- Microservices
+- High scale
+- Independent databases
+- Cloud-native systems
+
+📌 99% microservices → Saga

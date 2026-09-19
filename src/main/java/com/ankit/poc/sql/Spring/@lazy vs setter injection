@@ -1,338 +1,759 @@
-In Java Design Patterns, Singleton ensures only one instance of a class exists and provides a global access point to it.
+@Lazy and setter injection solve different problems in Spring Boot, although people sometimes confuse them because both affect bean initialization and dependency injection.
 
-There are multiple types of Singleton implementations, each solving specific problems like thread safety, performance, lazy loading, etc.
-This is a very common interview topic (especially for Java + Spring roles).
+- Setter Injection = How a dependency is injected
+- @Lazy = When a dependency is created
 
----
-
-## 1️⃣ Eager Initialization Singleton
-
-### Concept
-
- Instance is created at class loading time
- Simple and thread-safe (JVM guarantees)
-
-### Code
-
-```java
-public class EagerSingleton {
-
-    private static final EagerSingleton INSTANCE = new EagerSingleton();
-
-    private EagerSingleton() { }
-
-    public static EagerSingleton getInstance() {
-        return INSTANCE;
-    }
-}
-```
-
-### ✅ Pros
-
- Thread-safe by default
- Simple implementation
-
-### ❌ Cons
-
- Instance created even if never used
- Memory waste for heavy objects
-
-### 📌 Use when
-
- Singleton is always needed
- Object creation is cheap
+Let's understand both in depth.
 
 ---
 
-## 2️⃣ Lazy Initialization Singleton (Not Thread-Safe)
+1. Dependency Injection Types in Spring
 
-### Concept
+Spring supports three ways of injecting dependencies.
 
- Instance created only when requested
- ❌ Not thread-safe
+1. Constructor Injection  (Recommended)
+2. Setter Injection
+3. Field Injection (Not Recommended)
 
-### Code
 
-```java
-public class LazySingleton {
+Example:
 
-    private static LazySingleton instance;
 
-    private LazySingleton() { }
+Controller
+      |
+      v
+Service
+      |
+      v
+Repository
 
-    public static LazySingleton getInstance() {
-        if (instance == null) {
-            instance = new LazySingleton();
-        }
-        return instance;
-    }
-}
-```
 
-### ❌ Problem
-
-In multithreading:
-
-```text
-Thread A & Thread B may create TWO instances
-```
-
-### 📌 Use when
-
- Single-threaded environment only
+Spring injects the Repository into Service.
 
 ---
 
-## 3️⃣ Thread-Safe Singleton (Synchronized Method)
+What is Setter Injection?
 
-### Concept
+Instead of passing dependency through constructor, Spring calls a setter method.
 
- Synchronize `getInstance()` method
+Example
 
-### Code
+java
+@Repository
+public class UserRepository {
 
-```java
-public class ThreadSafeSingleton {
-
-    private static ThreadSafeSingleton instance;
-
-    private ThreadSafeSingleton() { }
-
-    public static synchronized ThreadSafeSingleton getInstance() {
-        if (instance == null) {
-            instance = new ThreadSafeSingleton();
-        }
-        return instance;
-    }
-}
-```
-
-### ✅ Pros
-
- Thread-safe
-
-### ❌ Cons
-
- Performance hit (synchronization on every call)
-
-### 📌 Use when
-
- Low-frequency calls
- Simple multithreaded apps
-
----
-
-## 4️⃣ Double-Checked Locking Singleton (Best Classic Approach)
-
-### Concept
-
- Synchronize only when instance is null
- Use `volatile` to avoid instruction reordering
-
-### Code
-
-```java
-public class DoubleCheckedSingleton {
-
-    private static volatile DoubleCheckedSingleton instance;
-
-    private DoubleCheckedSingleton() { }
-
-    public static DoubleCheckedSingleton getInstance() {
-        if (instance == null) {
-            synchronized (DoubleCheckedSingleton.class) {
-                if (instance == null) {
-                    instance = new DoubleCheckedSingleton();
-                }
-            }
-        }
-        return instance;
-    }
-}
-```
-
-### ✅ Pros
-
- Thread-safe
- High performance
-
-### ❌ Cons
-
- Slightly complex
-
-### 📌 Use when
-
- High-performance, multithreaded systems
- Very common in real-world Java apps
-
----
-
-## 5️⃣ Bill Pugh Singleton (Initialization-on-Demand Holder)
-
-### ⭐ Most Recommended (Interview Favorite)
-
-### Concept
-
- Uses static inner class
- JVM loads inner class only when accessed
-
-### Code
-
-```java
-public class BillPughSingleton {
-
-    private BillPughSingleton() { }
-
-    private static class SingletonHelper {
-        private static final BillPughSingleton INSTANCE =
-                new BillPughSingleton();
+    public void save() {
+        System.out.println("Saving User");
     }
 
-    public static BillPughSingleton getInstance() {
-        return SingletonHelper.INSTANCE;
+}
+
+
+Service
+
+java
+@Service
+public class UserService {
+
+    private UserRepository repository;
+
+    @Autowired
+    public void setRepository(UserRepository repository) {
+        this.repository = repository;
+    }
+
+    public void registerUser() {
+        repository.save();
+    }
+
+}
+
+
+Spring internally does
+
+
+UserService service = new UserService();
+
+UserRepository repo = new UserRepository();
+
+service.setRepository(repo);
+
+
+instead of
+
+
+new UserService(repo);
+
+
+---
+
+Execution Flow
+
+Application Starts
+
+↓
+
+Spring creates UserRepository
+
+↓
+
+Spring creates UserService
+
+↓
+
+Calls setter()
+
+↓
+
+Dependency injected
+
+↓
+
+Bean Ready
+
+---
+
+Advantages
+
+Optional dependency
+
+java
+@Service
+public class NotificationService {
+
+    private SmsService smsService;
+
+    @Autowired(required = false)
+    public void setSmsService(SmsService smsService) {
+        this.smsService = smsService;
     }
 }
-```
 
-### ✅ Pros
 
- Lazy initialization
- Thread-safe
- No synchronization overhead
+Application starts even if
 
-### 📌 Use when
 
- You want clean, efficient, production-ready singleton
+SmsService
+
+
+doesn't exist.
 
 ---
 
-## 6️⃣ Enum Singleton (Best & Safest)
+Mutable dependency
 
-### ⭐⭐⭐ Best Solution (Joshua Bloch Recommended)
+You can change dependency later.
 
-### Concept
+java
+service.setRepository(new TestRepository());
 
- Enum ensures:
 
-   Single instance
-   Serialization safety
-   Reflection attack protection
+Useful in tests.
 
-### Code
+---
 
-```java
-public enum EnumSingleton {
-    INSTANCE;
+Disadvantages
 
-    public void doSomething() {
-        System.out.println("Singleton via Enum");
+Dependency may remain null.
+
+java
+@Service
+public class UserService {
+
+    private UserRepository repository;
+
+    public void register() {
+
+        repository.save(); // NullPointerException
+
+    }
+
+}
+
+
+if setter never called.
+
+Constructor injection avoids this.
+
+---
+
+Constructor vs Setter
+
+Constructor
+
+java
+@Service
+public class UserService {
+
+    private final UserRepository repository;
+
+    public UserService(UserRepository repository) {
+        this.repository = repository;
+    }
+
+}
+No — in Spring, if your class has only one constructor, you do not need to put @Autowired on it. Spring will use that constructor automatically for dependency injection.
+
+When @Autowired is needed
+If the class has multiple constructors, annotate the one Spring should use with @Autowired.
+
+If there is only one constructor, Spring can infer it without the annotation.
+
+Example
+@Service
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 }
-```
+This works fine without @Autowired as long as it is the only constructor.
 
-### ✅ Pros
+Practical note
+Many developers still add @Autowired for clarity in older codebases, but with modern Spring, single-constructor injection is the cleanest approach.
 
- Thread-safe
- Serialization safe
- Reflection safe
- Very simple
-
-### ❌ Cons
-
- Cannot extend classes
- Less flexible (some frameworks dislike enums)
-
-### 📌 Use when
-
- You want absolute safety
- Configuration managers, constants, utilities
+Dependency is guaranteed.
 
 ---
 
-## 7️⃣ Singleton with Serialization Protection
+Setter
 
-### Problem
+java
+@Service
+public class UserService {
 
-Serialization can break singleton:
+    private UserRepository repository;
 
-```java
-ObjectInputStream -> creates NEW instance
-```
-
-### Solution
-
-Implement `readResolve()`
-
-```java
-protected Object readResolve() {
-    return getInstance();
-}
-```
-
----
-
-## 8️⃣ Singleton with Reflection Protection
-
-### Problem
-
-Reflection can access private constructor
-
-### Solution
-
-```java
-private Singleton() {
-    if (instance != null) {
-        throw new RuntimeException("Use getInstance()");
+    @Autowired
+    public void setRepository(UserRepository repository) {
+        this.repository = repository;
     }
+
 }
-```
+
+
+Dependency can change later.
 
 ---
 
-## 🔥 Comparison Table (Interview Gold)
+What is @Lazy?
 
-| Type           | Lazy | Thread Safe | Performance | Recommended |
-| -------------- | ---- | ----------- | ----------- | ----------- |
-| Eager          | ❌    | ✅           | High        | ❌           |
-| Lazy (basic)   | ✅    | ❌           | High        | ❌           |
-| Synchronized   | ✅    | ✅           | Low         | ❌           |
-| Double Checked | ✅    | ✅           | High        | ✅           |
-| Bill Pugh      | ✅    | ✅           | Very High   | ⭐⭐⭐         |
-| Enum           | ✅    | ✅           | Very High   | ⭐⭐⭐⭐        |
+Normally Spring creates singleton beans during application startup.
 
----
 
-## 🎯 What Interviewers Expect You to Say
+Application Starts
 
-👉 Best Singleton?
+↓
 
- Enum Singleton (most robust)
- Bill Pugh Singleton (best classic Java)
+Create Bean A
 
-👉 Why not synchronized?
+↓
 
- Performance overhead
+Create Bean B
 
-👉 How singleton breaks?
+↓
 
- Reflection
- Serialization
- Cloning
- Classloaders
+Create Bean C
 
-👉 How to fix?
+↓
 
- Enum
- `readResolve()`
- Constructor guard
+Ready
+
+
+Even if Bean C is never used.
 
 ---
 
-If you want, I can:
+Using
 
- Explain how Spring handles Singleton internally
- Show real-world microservice use cases
- Give interview Q&A with answers
- Compare Singleton vs Prototype (Spring scope)
+java
+@Lazy
 
-Just tell me 👍
+
+Spring delays bean creation until first use.
+
+---
+
+Without @Lazy
+
+java
+@Component
+public class PaymentService {
+
+    public PaymentService() {
+        System.out.println("PaymentService Created");
+    }
+
+}
+
+
+
+@SpringBootApplication
+public class DemoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(DemoApplication.class, args);
+    }
+
+}
+
+
+Output
+
+
+PaymentService Created
+
+
+created immediately.
+
+---
+
+With @Lazy
+
+java
+@Component
+@Lazy
+public class PaymentService {
+
+    public PaymentService() {
+        System.out.println("PaymentService Created");
+    }
+
+}
+
+
+Nothing printed during startup.
+
+Only when
+
+java
+@Autowired
+PaymentService paymentService;
+
+
+is actually used.
+
+---
+
+Example
+
+java
+@Component
+@Lazy
+public class ReportGenerator {
+
+    public ReportGenerator() {
+        System.out.println("Creating report generator");
+    }
+
+    public void generate() {
+        System.out.println("Generating Report");
+    }
+
+}
+
+
+Controller
+
+java
+@RestController
+public class ReportController {
+
+    @Autowired
+    private ReportGenerator generator;
+
+    @GetMapping("/report")
+    public String report() {
+
+        generator.generate();
+
+        return "Done";
+
+    }
+
+}
+
+
+Application startup
+
+
+No bean created.
+
+
+First request
+
+
+GET /report
+
+
+Output
+
+
+Creating report generator
+
+Generating Report
+
+
+---
+
+@Lazy on Injection Point
+
+Instead of making entire bean lazy
+
+java
+@Component
+public class PaymentService {
+}
+
+
+Inject lazily
+
+java
+@Service
+public class OrderService {
+
+    @Autowired
+    @Lazy
+    private PaymentService paymentService;
+
+}
+
+
+Spring injects a proxy.
+
+Actual object
+
+
+PaymentService
+
+
+is created only when
+
+java
+paymentService.pay();
+
+
+is called.
+
+---
+
+Behind the scenes
+
+Suppose
+
+
+OrderService
+
+↓
+
+PaymentService
+
+
+Spring injects
+
+
+OrderService
+
+↓
+
+PaymentService Proxy
+
+↓
+
+Real PaymentService
+
+
+Initially
+
+
+Proxy only
+
+
+Later
+
+
+pay()
+
+↓
+
+Proxy
+
+↓
+
+Create PaymentService
+
+↓
+
+Invoke pay()
+
+
+---
+
+Solving Circular Dependency
+
+Suppose
+
+java
+@Service
+public class AService {
+
+    @Autowired
+    private BService b;
+
+}
+
+
+java
+@Service
+public class BService {
+
+    @Autowired
+    private AService a;
+
+}
+
+
+Spring
+
+
+Create A
+
+Needs B
+
+Create B
+
+Needs A
+
+Already creating A
+
+↓
+
+Circular dependency
+
+
+Application fails.
+
+---
+
+Solution
+
+java
+@Service
+public class BService {
+
+    @Autowired
+    @Lazy
+    private AService a;
+
+}
+
+
+Now Spring injects proxy.
+
+
+A
+
+↓
+
+B
+
+↓
+
+Proxy(A)
+
+↓
+
+Application Starts
+
+
+Real A loaded later.
+
+---
+
+Heavy Bean Example
+
+Suppose bean loads ML model.
+
+java
+@Component
+public class AIModel {
+
+    public AIModel() {
+
+        System.out.println("Loading 5GB model...");
+
+        Thread.sleep(10000);
+
+    }
+
+}
+
+
+Startup
+
+
+10 seconds
+
+
+With
+
+java
+@Lazy
+@Component
+public class AIModel {
+}
+
+
+Startup
+
+
+1 second
+
+
+Model loads only when needed.
+
+---
+
+@Lazy with Setter Injection
+
+java
+@Service
+public class OrderService {
+
+    private PaymentService paymentService;
+
+    @Autowired
+    public void setPaymentService(@Lazy PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+}
+
+
+Flow
+
+
+Application Starts
+
+↓
+
+Create OrderService
+
+↓
+
+Inject Proxy
+
+↓
+
+No PaymentService Created
+
+↓
+
+paymentService.pay()
+
+↓
+
+Create PaymentService
+
+↓
+
+Execute pay()
+
+
+---
+
+Real-world Example
+
+
+E-commerce
+
+
+Beans
+
+
+UserService
+
+OrderService
+
+PaymentGateway
+
+RecommendationEngine
+
+AnalyticsEngine
+
+PDFGenerator
+
+EmailEngine
+
+
+Only
+
+
+UserService
+
+OrderService
+
+
+are needed for most requests.
+
+The following are expensive:
+
+- RecommendationEngine
+- AnalyticsEngine
+- PDFGenerator
+
+Use
+
+java
+@Lazy
+
+
+on those beans to reduce startup time and memory usage.
+
+---
+
+When to Use Setter Injection
+
+Use setter injection when:
+
+- Dependency is optional.
+- You want to reconfigure or replace the dependency after object creation (common in tests).
+- Legacy frameworks require JavaBean-style properties.
+
+Avoid it for mandatory dependencies.
+
+---
+
+When to Use @Lazy
+
+Use @Lazy when:
+
+- A bean is expensive to initialize.
+- The bean is rarely used.
+- You need to break a circular dependency (prefer redesigning dependencies first).
+- You want faster application startup.
+
+Avoid using @Lazy everywhere, as it simply shifts initialization cost to the first use and can delay error detection.
+
+---
+
+Setter Injection vs @Lazy
+
+| Feature | Setter Injection | @Lazy |
+|---------|------------------|----------|
+| Purpose | Inject dependency via a setter method | Delay bean creation until first use |
+| Controls | How the dependency is injected | When the dependency is instantiated |
+| Bean creation | Usually during application startup | Deferred until accessed |
+| Best for | Optional or replaceable dependencies | Expensive or infrequently used beans |
+| Can help with circular dependencies | No | Yes (by injecting a proxy) |
+| Risk | Dependency may remain null if not injected | First access may incur initialization delay |
+| Recommended for required dependencies | No | Can still be used with constructor injection if lazy loading is desired |
+
+Best Practice
+
+For most Spring Boot applications:
+
+- ✅ Prefer constructor injection for required dependencies because it makes dependencies explicit, immutable, and easy to test.
+- ✅ Use setter injection only for genuinely optional or configurable dependencies.
+- ✅ Use @Lazy selectively for expensive beans or to resolve unavoidable circular dependencies, not as a general performance optimization.
