@@ -1,4 +1,5 @@
 package com.ankit.poc.abc1;
+
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,7 +12,8 @@ import com.ankit.poc.java_8.Employee;
 
 public class Test {
   public static void main(String[] args) {
-    calculator();
+    // calculator();
+    System.out.println(mergeAndReverseTheString());// DRCQBPA DRCQBPA
 
   }
 
@@ -112,13 +114,17 @@ public class Test {
       if (i < s1.length()) {
         builder.append(s1.charAt(i));
       }
+      // i=0 ap
+      // i = 1 apbq
+      // i 2 apbqcr
+      // i 3 APBQCRD
 
       if (i < s2.length()) {
         builder.append(s2.charAt(i));
       }
     }
 
-    return builder.reverse().toString();
+    return builder.reverse().toString().toUpperCase();// REVERSE DRCQBPA
 
   }
 }

@@ -100,9 +100,7 @@ public class Student implements Comparable<Student> {
     this.contacts = contacts;
   }
 
-  public Student() {
-    // TODO Auto-generated constructor stub
-  }
+  public Student() {}
 
   public Student(int id, String name, int rank, int age, String gender, String dept, String city,
       List<String> contacts) {
@@ -116,6 +114,19 @@ public class Student implements Comparable<Student> {
     this.city = city;
     this.contacts = contacts;
   }
+
+  public Student(int id, String name, int age, String gender, String dept, String city, int rank,
+      List<String> contacts) {
+    this.id = id;
+    this.name = name;
+    this.age = age;
+    this.gender = gender;
+    this.dept = dept;
+    this.city = city;
+    this.rank = rank;
+    this.contacts = contacts;
+  }
+
 
   /**
    * @return the rank
